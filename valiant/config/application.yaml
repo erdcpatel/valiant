@@ -1,0 +1,14 @@
+# Development overrides
+api:
+  base_url: https://dev-api.example.com
+  timeout: 60
+
+database:
+  host: dev-db.example.com
+  name: myapp_dev
+
+logging:
+  level: DEBUG
+
+features:
+  enabled: true

@@ -1,0 +1,39 @@
+# Byte-compiled / optimized / compiled files
+__pycache__/
+*.pyc
+*.pyd
+*.pyo
+
+# Virtual environment
+venv/
+.venv/
+env/
+.env/
+
+# Distribution / build files
+dist/
+build/
+*.egg-info/
+.eggs/
+
+# Editor-specific files
+.vscode/
+.idea/
+
+# Operating System files
+.DS_Store
+Thumbs.db
+
+# Log files
+*.log
+*.pid
+
+# Sensitive information (e.g., API keys, database credentials)
+*.env
+config.ini
+secrets.py
+
+__pycache__/
+.DS_Store
+ui/logs/
+ui/pids/

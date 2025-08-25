@@ -1,0 +1,42 @@
+{
+  "username": "admin",
+  "password": "secret",
+  "environment": "dev",
+  "timeout": 30,
+  "retries": 2,
+  "headers": {
+    "Content-Type": "application/json",
+    "Authorization": "Bearer token_2515"
+  },
+  "auth_token": "token_2515",
+  "user_id": 61,
+  "user_profile": {
+    "name": "User 61",
+    "email": "user61@example.com",
+    "role": "user"
+  },
+  "data": [
+    {
+      "id": 1001,
+      "product": "Laptop",
+      "value": 1200
+    },
+    {
+      "id": 1002,
+      "product": "Monitor",
+      "value": 300
+    },
+    {
+      "id": 1003,
+      "product": "Keyboard",
+      "value": 80
+    }
+  ],
+  "report": {
+    "user": "User 61",
+    "email": "user61@example.com",
+    "item_count": 3,
+    "total_value": 1580,
+    "status": "completed"
+  }
+}
