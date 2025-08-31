@@ -92,8 +92,9 @@ class WorkflowRunner:
         timeout = step["timeout"]
         max_retries = step["retries"]
 
-        # Check dependencies
-        missing_deps = [dep for dep in step["requires"] if dep not in self.context]
+        # Check dependencies - look for completed steps, not context keys
+        completed_step_names = [r.name for r in self.results if r.success]
+        missing_deps = [dep for dep in step["requires"] if dep not in completed_step_names]
         if missing_deps:
             result.skipped = True
             result.message = f"Missing dependencies: {', '.join(missing_deps)}"

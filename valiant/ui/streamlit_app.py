@@ -62,7 +62,14 @@ def main():
                             index=field.get('options', []).index(field.get('default', '')) if field.get('default', '') in field.get('options', []) else 0
                         )
                     elif field['type'] == 'date':
-                        user_inputs[field['name']] = st.date_input(field['label'])
+                        date_value = st.date_input(field['label'])
+                        if date_value:
+                            if isinstance(date_value, tuple):
+                                user_inputs[field['name']] = date_value[0].isoformat() if date_value[0] else None
+                            else:
+                                user_inputs[field['name']] = date_value.isoformat()
+                        else:
+                            user_inputs[field['name']] = None
                     elif field['type'] == 'checkbox' or field['type'] == 'boolean':
                         user_inputs[field['name']] = st.checkbox(field['label'], value=field.get('default', False))
 
