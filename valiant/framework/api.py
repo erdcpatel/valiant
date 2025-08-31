@@ -2,7 +2,7 @@
 Direct API layer for programmatic workflow execution
 """
 import asyncio
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Tuple, Optional
 from .engine import WorkflowRunner
 from .registry import get_available_workflows
 from .workflow import BaseWorkflow, InputType, InputField
@@ -19,10 +19,10 @@ class ValiantAPI:
     @staticmethod
     async def run_workflow(
             workflow_name: str,
-            environment: str = None,
+            environment: Optional[str] = None,
             timeout: float = 30.0,
             retries: int = 1,
-            context_overrides: Dict[str, Any] = None
+            context_overrides: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """Execute a workflow programmatically"""
         # Get workflow class

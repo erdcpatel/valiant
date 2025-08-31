@@ -1,6 +1,6 @@
 import os
 import yaml
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from pathlib import Path
 
 
@@ -9,7 +9,7 @@ class ConfigLoader:
         self.config_dir = config_dir
         self.config = {}
 
-    def load_configurations(self, environment: str = None) -> Dict[str, Any]:
+    def load_configurations(self, environment: Optional[str] = None) -> Dict[str, Any]:
         """Load configurations with environment-specific overrides"""
         # Load base configuration
         base_config_path = Path(self.config_dir) / "application.yaml"
