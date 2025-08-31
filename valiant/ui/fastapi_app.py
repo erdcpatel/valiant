@@ -1,10 +1,11 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 import asyncio
 import json
 from pathlib import Path
 import sys
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 # Add project root to Python path
 current_dir = Path(__file__).parent
@@ -109,7 +110,7 @@ async def get_workflow_schema(workflow_name: str):
 
 
 @app.post("/run/{workflow_name}")
-async def run_workflow(workflow_name: str, config: Dict[str, Any] = None):
+async def run_workflow(workflow_name: str, config: Optional[Dict[str, Any]] = None):
     """Execute a workflow with provided configuration"""
     config = config or {}
 
@@ -162,7 +163,7 @@ async def run_workflow(workflow_name: str, config: Dict[str, Any] = None):
 
 
 @app.post("/run/{workflow_name}/sync")
-async def run_workflow_sync(workflow_name: str, config: Dict[str, Any] = None):
+async def run_workflow_sync(workflow_name: str, config: Optional[Dict[str, Any]] = None):
     """
     Execute a workflow synchronously with simplified response
     """

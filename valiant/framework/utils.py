@@ -147,8 +147,8 @@ def log_response_summary(
 def validate_response(
     response: dict,
     checks: dict,
-    context: dict = None,
-    set_values: dict = None
+    context: Optional[dict] = None,
+    set_values: Optional[dict] = None
 ) -> Tuple[bool, str]:
     """
     Validate API response with one-liner
@@ -177,8 +177,8 @@ def validate_response(
 def api_get_and_process(
         url: str,
         context: dict,
-        checks: dict = None,
-        set_values: dict = None,
+        checks: Optional[dict] = None,
+        set_values: Optional[dict] = None,
         **kwargs
 ) -> Tuple[bool, str]:
     """

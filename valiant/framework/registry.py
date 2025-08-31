@@ -1,7 +1,7 @@
 """
 Simple workflow registry using explicit configuration
 """
-from typing import Dict
+from typing import Dict, Optional
 import importlib
 
 # Import the workflow configuration
@@ -11,7 +11,7 @@ except ImportError:
     # Fallback if config doesn't exist
     WORKFLOWS = {}
 
-def get_workflow_class_path(name: str) -> str:
+def get_workflow_class_path(name: str) -> Optional[str]:
     """Get the full class path for a registered workflow"""
     return WORKFLOWS.get(name)
 

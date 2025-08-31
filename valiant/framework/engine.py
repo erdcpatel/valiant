@@ -45,7 +45,7 @@ class WorkflowRunner:
                  timeout: float = 30.0,
                  max_retries: int = 1,
                  output_format: str = "rich",
-                 environment: str = None,
+                 environment: Optional[str] = None,
                  config_dir: str = "config"
                  ):
         self.context: Dict = {}

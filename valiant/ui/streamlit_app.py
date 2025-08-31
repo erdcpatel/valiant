@@ -4,10 +4,6 @@ import json
 from pathlib import Path
 import sys
 import pandas as pd
-import asyncio
-import json
-from pathlib import Path
-import sys
 
 # Add project root to Python path
 current_dir = Path(__file__).parent
