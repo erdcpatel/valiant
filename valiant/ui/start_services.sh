@@ -9,15 +9,14 @@ NC='\033[0m' # No Color
 
 # Directories
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-VALIANT="/Users/dhavalpatel/workspace/valiant_project"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 LOG_DIR="$SCRIPT_DIR/logs"
 PID_DIR="$SCRIPT_DIR/pids"
 
-echo $PROJECT_ROOT
+echo "Project Root: $PROJECT_ROOT"
 
-# Export PYTHONPATH
-export PYTHONPATH="$VALIANT:$PYTHONPATH"
+# Export PYTHONPATH to include the project root so valiant module can be found
+export PYTHONPATH="$PROJECT_ROOT:$PYTHONPATH"
 
 # Create directories if they don't exist
 mkdir -p "$LOG_DIR"
@@ -115,10 +114,10 @@ case "${1:-start}" in
         echo -e "${BLUE}Python Path: $PYTHONPATH${NC}"
 
         # Start FastAPI
-        start_service "fastapi" "uvicorn ui.fastapi_app:app --host 0.0.0.0 --port 8000"
+        start_service "fastapi" "uvicorn valiant.ui.fastapi_app:app --host 0.0.0.0 --port 8000"
 
         # Start Streamlit
-        start_service "streamlit" "streamlit run ui/streamlit_app.py --server.port 8501 --server.address 0.0.0.0"
+        start_service "streamlit" "streamlit run valiant/ui/streamlit_app.py --server.port 8501 --server.address 0.0.0.0"
 
         echo -e "${GREEN}Services started!${NC}"
         echo -e "${GREEN}FastAPI:  http://localhost:8000${NC}"

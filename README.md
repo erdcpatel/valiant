@@ -28,16 +28,30 @@ cd valiant
 
 ### 2. Install Requirements
 
+Install core dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
+Install UI dependencies (required for Streamlit and FastAPI):
+```bash
+pip install -r requirements-ui.txt
+```
+
+Or install all dependencies at once:
+```bash
+pip install -r requirements.txt -r requirements-ui.txt
+```
+
 ### 3. Start the Services
 
+From the project root directory:
 ```bash
 cd valiant/ui
 bash start_services.sh start
 ```
+
+The script will automatically set the correct PYTHONPATH and start both services.
 
 - **Streamlit UI:** [http://localhost:8501](http://localhost:8501)
 - **FastAPI:** [http://localhost:8000/docs](http://localhost:8000/docs)
@@ -60,6 +74,9 @@ valiant/
     streamlit_app.py # Streamlit UI
     fastapi_app.py   # FastAPI backend
     start_services.sh# Service management script
+  requirements.txt   # Core dependencies
+  requirements-ui.txt# UI dependencies (Streamlit, FastAPI)
+  run.py            # CLI entry point
 ```
 
 ---
@@ -75,6 +92,15 @@ valiant/
 
 ---
 
+## CLI Usage
+
+Run workflows from command line:
+```bash
+python run.py run <workflow_name>
+```
+
+Available workflows: `api`, `system`, `user`
+
 ## Example Workflow Step
 
 ```python
@@ -82,3 +108,28 @@ def step_check_api(self, context: dict) -> tuple:
     response = ... # your logic
     return True, "API check passed", {"response": response}
 ```
+
+## Service Management Script
+
+The startup script provides convenient commands to manage both UI services:
+
+```bash
+cd valiant/ui
+bash start_services.sh start    # Start both services
+bash start_services.sh stop     # Stop both services  
+bash start_services.sh restart  # Restart both services
+bash start_services.sh status   # Check service status
+bash start_services.sh logs fastapi    # View FastAPI logs
+bash start_services.sh logs streamlit  # View Streamlit logs
+bash start_services.sh clean    # Clean log and PID files
+```
+
+The script automatically sets the correct PYTHONPATH and handles service management with proper logging.
+
+## Troubleshooting
+
+If you encounter import errors when starting services:
+- Ensure you're running the start script from the project root
+- The script automatically sets PYTHONPATH to include the project root
+- Make sure both requirements.txt and requirements-ui.txt are installed
+- Check the log files in `valiant/ui/logs/` for detailed error messages
