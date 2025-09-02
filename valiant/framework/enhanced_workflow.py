@@ -136,16 +136,47 @@ class EnhancedBaseWorkflow(BaseWorkflow):
                 result = step_func(context)
                 
                 if isinstance(result, EnhancedStepResult):
-                    return result.to_legacy_tuple()
-                
-                elif isinstance(result, tuple) and len(result) == 3:
+                    # Add step configuration metadata
+                    result.metadata.update({
+                        "step_priority": config.priority.name,
+                        "step_order": config.order,
+                        "step_description": config.description,
+                        "timeout": config.timeout,
+                        "retries": config.retries,
+                        "parallel_group": config.parallel_group
+                    })
+                    # Add step configuration tags without duplicates (decorator may have already added)
+                    for t in config.tags:
+                        try:
+                            result.add_tag(t)
+                        except AttributeError:
+                            # Fallback if result doesn't implement add_tag
+                            if t not in getattr(result, 'tags', []):
+                                result.tags.append(t)
+                    print(f"[DEBUG] Step {config.name} metadata: {result.metadata}")
+                    print(f"[DEBUG] Step {config.name} tags: {result.tags}")
+                    # Return the enhanced result directly so engine can extract metrics/tags
                     return result
                 
+                elif isinstance(result, tuple) and len(result) == 3:
+                    # Convert legacy tuple to EnhancedStepResult to maintain metrics/tags pipeline
+                    success, message, data = result
+                    enhanced = EnhancedStepResult.create_success(config.name, message, data) if success else EnhancedStepResult.create_failure(config.name, message, data)
+                    enhanced.tags.extend(config.tags)
+                    return enhanced
+                
                 else:
-                    return False, f"Invalid return type from step {config.name}: {type(result)}", None
+                    return EnhancedStepResult.create_failure(
+                        config.name,
+                        f"Invalid return type from step {config.name}: {type(result)}"
+                    )
                     
             except Exception as e:
-                return False, f"Step {config.name} failed with exception: {str(e)}", None
+                return EnhancedStepResult.create_failure(
+                    config.name,
+                    f"Step {config.name} failed with exception: {str(e)}",
+                    exception=e
+                )
         
         if self.runner:
             self.runner.add_step(

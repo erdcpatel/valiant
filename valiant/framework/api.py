@@ -74,7 +74,9 @@ class ValiantAPI:
                     "executed": r.executed,
                     "time_taken": round(r.time_taken, 2),
                     "attempts": r.attempts,
-                    "data": r.data
+                    "data": r.data,
+                    "derived_metrics": r.derived_metrics,  # Direct access
+                    "tags": r.tags  # Direct access
                 }
                 for r in runner.results
             ],

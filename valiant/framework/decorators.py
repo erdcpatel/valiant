@@ -47,14 +47,17 @@ class EnhancedStepResult:
         self.name = name
         self._success = success
         self.message = message
-        self.data = data
+        self.data = data if data is not None else {}
         self.skipped = False
-        self.executed = False
+        self.executed = True  # Set to True by default since we're creating a result
         self.time_taken = 0.0
         self.attempts = 1
         self.exception: Optional[Exception] = None
+        self._step_config: Dict[str, Any] = {}
+        self.derived_metrics: Dict[str, Any] = {}
         self.metadata: Dict[str, Any] = {}
         self.tags: List[str] = []
+        print(f"[DEBUG] Created EnhancedStepResult for {name} with metrics={self.derived_metrics} tags={self.tags}")
     
     @property
     def success(self) -> bool:
@@ -70,6 +73,8 @@ class EnhancedStepResult:
     def create_success(cls, name: str, message: str = "Step completed successfully", data: Any = None) -> 'EnhancedStepResult':
         """Create a successful step result"""
         result = cls(name, success=True, message=message, data=data)
+        result.derived_metrics = {}  # Ensure metrics dict exists
+        result.tags = []  # Ensure tags list exists
         return result
     
     @classmethod
@@ -86,20 +91,45 @@ class EnhancedStepResult:
         result.skipped = True
         return result
     
-    def add_metadata(self, key: str, value: Any) -> 'EnhancedStepResult':
-        """Add metadata to the result"""
-        self.metadata[key] = value
+    def add_metric(self, key: str, value: Any) -> 'EnhancedStepResult':
+        """Add a derived metric/attribute to the result"""
+        if not hasattr(self, 'derived_metrics'):
+            self.derived_metrics = {}
+        self.derived_metrics[key] = value
+        print(f"[DEBUG] Added metric {key}={value} to {self.name}")  # Debug output
         return self
     
     def add_tag(self, tag: str) -> 'EnhancedStepResult':
         """Add a tag to the result"""
         if tag not in self.tags:
             self.tags.append(tag)
+            print(f"[DEBUG] Tag added: {tag}")  # Debug statement
         return self
     
     def to_legacy_tuple(self) -> Tuple[bool, str, Any]:
         """Convert to legacy tuple format for backward compatibility"""
         return (self._success, self.message, self.data)
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert step result to a dictionary including derived metrics and tags"""
+        metrics = getattr(self, 'derived_metrics', {})
+        tags = getattr(self, 'tags', [])
+        print(f"[DEBUG] Step {self.name} has metrics: {metrics}")
+        print(f"[DEBUG] Step {self.name} has tags: {tags}")
+        
+        result = {
+            "name": self.name,
+            "success": self._success,
+            "message": self.message,
+            "data": self.data,
+            "derived_metrics": metrics,
+            "tags": tags,
+            "skipped": self.skipped,
+            "executed": self.executed,
+            "time_taken": self.time_taken,
+            "attempts": self.attempts
+        }
+        return result
 
 
 def step(
@@ -160,17 +190,50 @@ def step(
         
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            result = func(*args, **kwargs)
-            
-            if isinstance(result, EnhancedStepResult):
-                return result
-            elif isinstance(result, tuple) and len(result) == 3:
-                success, message, data = result
-                return EnhancedStepResult(step_name, success, message, data)
-            else:
+            try:
+                result = func(*args, **kwargs)
+                
+                if isinstance(result, EnhancedStepResult):
+                    # Store step configuration separately, not mixing with runtime metrics
+                    result._step_config = {
+                        "description": config.description,
+                        "priority": config.priority.name,
+                        "order": config.order,
+                        "timeout": config.timeout,
+                        "retries": config.retries,
+                        "parallel_group": config.parallel_group
+                    }
+                    
+                    # Add step configuration tags without duplicates
+                    for t in config.tags:
+                        result.add_tag(t)
+                    return result
+                elif isinstance(result, tuple) and len(result) == 3:
+                    success, message, data = result
+                    enhanced_result = EnhancedStepResult(step_name, success, message, data)
+                    enhanced_result.derived_metrics = {}  # Initialize empty metrics dict
+                    enhanced_result.tags = []  # Initialize empty tags list
+                    enhanced_result._step_config.update({
+                        "description": config.description,
+                        "priority": config.priority.name,
+                        "order": config.order,
+                        "timeout": config.timeout,
+                        "retries": config.retries,
+                        "parallel_group": config.parallel_group
+                    })
+                    for t in config.tags:
+                        enhanced_result.add_tag(t)
+                    return enhanced_result
+                else:
+                    return EnhancedStepResult.create_failure(
+                        step_name, 
+                        f"Invalid return type from step: {type(result)}"
+                    )
+            except Exception as e:
                 return EnhancedStepResult.create_failure(
-                    step_name, 
-                    f"Invalid return type from step: {type(result)}"
+                    step_name,
+                    f"Step execution failed: {str(e)}",
+                    exception=e
                 )
         
         return wrapper
@@ -265,7 +328,7 @@ class APIAuthStep(StepTemplate):
                     self.name,
                     f"Authentication successful for {username}",
                     {"token": token, "response": response}
-                ).add_metadata("auth_method", "api").add_tag("authentication")
+                ).add_metric("auth_method", "api").add_tag("authentication")
                 
             except Exception as e:
                 return EnhancedStepResult.create_failure(
@@ -358,7 +421,7 @@ class APIGetStep(StepTemplate):
                     self.name,
                     f"API request successful: {self.url}",
                     {"response": response, "extracted": extracted_data}
-                ).add_metadata("url", self.url).add_tag("api")
+                ).add_metric("url", self.url).add_tag("api")
                 
             except Exception as e:
                 return EnhancedStepResult.create_failure(
@@ -438,7 +501,7 @@ class CLIStep(StepTemplate):
                     self.name,
                     f"Command executed successfully: {self.command}",
                     {"output": output, "extracted": extracted_value}
-                ).add_metadata("command", self.command).add_tag("cli")
+                ).add_metric("command", self.command).add_tag("cli")
                 
             except Exception as e:
                 return EnhancedStepResult.create_failure(
