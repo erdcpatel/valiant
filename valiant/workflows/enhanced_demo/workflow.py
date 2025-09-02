@@ -30,7 +30,7 @@ class EnhancedDemoWorkflow(EnhancedBaseWorkflow):
     def get_metadata(self) -> WorkflowMetadata:
         return WorkflowMetadata(
             name="Enhanced Demo Workflow",
-            description="Demonstrates Phase 1 & 2 enhanced framework features including decorators, templates, and automatic step discovery",
+            description="Demonstrates enhanced framework features including decorators, templates, and automatic step discovery",
             version="1.0.0",
             author="Valiant Enhanced Framework",
             category="demo",
@@ -128,7 +128,7 @@ class EnhancedDemoWorkflow(EnhancedBaseWorkflow):
             context["processing_mode"] = demo_select
             context["workflow_start_time"] = "2025-08-31T07:30:00Z"
             
-            return EnhancedStepResult.create_success(
+            result = EnhancedStepResult.create_success(
                 "Initialize Context",
                 f"Context initialized successfully with text: '{demo_text}' and number: {demo_number}",
                 {
@@ -136,7 +136,20 @@ class EnhancedDemoWorkflow(EnhancedBaseWorkflow):
                     "calculated_value": context["calculated_value"],
                     "processing_mode": context["processing_mode"]
                 }
-            ).add_metadata("input_count", len(context)).add_tag("initialization")
+            )
+            
+            # Add meaningful derived metrics
+                        # Add metrics using add_metric
+            result.add_metric("input_field_count", len(context))
+            result.add_metric("text_length", len(demo_text))
+            result.add_metric("number_value", demo_number)
+            result.add_metric("processing_mode", demo_select)
+            
+            # Add tags using add_tag
+            for tag in ["initialization", "context", "validation"]:
+                result.add_tag(tag)
+            
+            return result
             
         except Exception as e:
             return EnhancedStepResult.create_failure(
@@ -183,7 +196,7 @@ class EnhancedDemoWorkflow(EnhancedBaseWorkflow):
             context["text_length"] = len(result_text)
             context["complexity_level"] = complexity
             
-            return EnhancedStepResult.create_success(
+            result = EnhancedStepResult.create_success(
                 "Process Text Data",
                 f"Text processed successfully using {complexity} mode",
                 {
@@ -191,7 +204,19 @@ class EnhancedDemoWorkflow(EnhancedBaseWorkflow):
                     "text_length": len(result_text),
                     "complexity": complexity
                 }
-            ).add_metadata("processing_mode", processing_mode).add_tag("text-processing")
+            )
+            
+            # Add metrics using add_metric
+            result.add_metric("characters_processed", len(processed_text))
+            result.add_metric("word_count", len(processed_text.split()))
+            result.add_metric("complexity_level", complexity)
+            result.add_metric("processing_mode", processing_mode)
+            
+            # Add tags using add_tag
+            for tag in ["text-processing", "transformation", complexity]:
+                result.add_tag(tag)
+            
+            return result
             
         except Exception as e:
             return EnhancedStepResult.create_failure(
@@ -243,11 +268,23 @@ class EnhancedDemoWorkflow(EnhancedBaseWorkflow):
             context["math_results"] = results
             context["calculation_count"] = len(results)
             
-            return EnhancedStepResult.create_success(
+            result = EnhancedStepResult.create_success(
                 "Mathematical Operations",
                 f"Mathematical operations completed. Calculated {len(results)} values.",
                 results
-            ).add_metadata("advanced_enabled", enable_advanced).add_tag("mathematics")
+            )
+            
+            # Add metrics using add_metric
+            result.add_metric("operations_count", len(results))
+            result.add_metric("max_result", max(results.values()))
+            result.add_metric("min_result", min(results.values()))
+            result.add_metric("average_result", sum(results.values()) / len(results))
+            
+            # Add tags using add_tag
+            for tag in ["mathematics", "calculation", "numeric"]:
+                result.add_tag(tag)
+            
+            return result
             
         except Exception as e:
             return EnhancedStepResult.create_failure(
@@ -281,7 +318,9 @@ class EnhancedDemoWorkflow(EnhancedBaseWorkflow):
                 validation_results["text_valid"] = False
             
             math_results = context.get("math_results", {})
-            if math_results:
+            calculated_value = context.get("calculated_value")
+            
+            if math_results and calculated_value is not None:
                 validation_results["math_valid"] = True
                 validation_results["calculation_count"] = len(math_results)
                 
@@ -291,7 +330,10 @@ class EnhancedDemoWorkflow(EnhancedBaseWorkflow):
                 if math_results.get("factorial", 0) > 3628800:  # 10!
                     warnings.append("Factorial value is at maximum limit")
             else:
-                errors.append("Mathematical results are missing")
+                if not math_results:
+                    errors.append("Mathematical results are missing")
+                if calculated_value is None:
+                    errors.append("Calculated value is missing")
                 validation_results["math_valid"] = False
             
             validation_results["errors"] = errors
@@ -311,11 +353,24 @@ class EnhancedDemoWorkflow(EnhancedBaseWorkflow):
             if warnings:
                 message += f" with {len(warnings)} warnings"
             
-            return EnhancedStepResult.create_success(
+            result = EnhancedStepResult.create_success(
                 "Data Validation",
                 message,
                 validation_results
-            ).add_metadata("warning_count", len(warnings)).add_tag("validation")
+            )
+            
+            # Add metrics using add_metric
+            result.add_metric("total_validations", len(validation_results))
+            result.add_metric("warning_count", len(warnings))
+            result.add_metric("error_count", len(errors))
+            result.add_metric("validation_passed", len(errors) == 0)
+            result.add_metric("has_warnings", len(warnings) > 0)
+            
+            # Add tags using add_tag
+            for tag in ["validation", "quality-check", "data-integrity"]:
+                result.add_tag(tag)
+            
+            return result
             
         except Exception as e:
             return EnhancedStepResult.create_failure(
@@ -396,11 +451,23 @@ class EnhancedDemoWorkflow(EnhancedBaseWorkflow):
             
             context["final_report"] = report
             
-            return EnhancedStepResult.create_success(
+            result = EnhancedStepResult.create_success(
                 "Generate Report",
                 "Comprehensive workflow report generated successfully",
                 report
-            ).add_metadata("report_sections", len(report)).add_tag("reporting")
+            )
+            
+            # Add metrics using add_metric
+            result.add_metric("section_count", len(report))
+            result.add_metric("total_data_points", sum(len(section) for section in report.values()))
+            result.add_metric("processing_time", 0.0)
+            result.add_metric("successful_steps", report["execution_summary"]["successful_steps"])
+            
+            # Add tags using add_tag
+            for tag in ["reporting", "summary", "final"]:
+                result.add_tag(tag)
+            
+            return result
             
         except Exception as e:
             return EnhancedStepResult.create_failure(

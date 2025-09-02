@@ -1,7 +1,7 @@
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 import time
-from typing import Dict, Callable, List, Tuple, Optional, Union, Awaitable
+from typing import Dict, Callable, List, Tuple, Optional, Union, Awaitable, Any
 from rich.console import Console
 from rich.table import Table
 import os
@@ -29,12 +29,39 @@ class StepResult:
         self.attempts: int = 1
         self.exception: Optional[Exception] = None
         self.data: object = None
+        self._step_config: Dict[str, Any] = {}  # Configuration metadata
+        self.derived_metrics: Dict[str, Any] = {}  # Runtime metrics
+        self.tags: List[str] = []  # Tags
+        self.metadata: Dict[str, Any] = {}  # Legacy metadata - keep for compatibility
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert step result to dictionary format"""
+        return {
+            "name": self.name,
+            "success": self.success,
+            "message": self.message,
+            "skipped": self.skipped,
+            "executed": self.executed,
+            "time_taken": self.time_taken,
+            "attempts": self.attempts,
+            "data": self.data,
+            "metadata": self.metadata,
+            "derived_metrics": self.derived_metrics,
+            "step_config": self._step_config,
+            "tags": self.tags
+        }
 
 
 # Define a type alias for better readability
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from .decorators import EnhancedStepResult
+
 StepFunction = Union[
     Callable[[Dict], Tuple[bool, str, object]],
-    Callable[[Dict], Awaitable[Tuple[bool, str, object]]]
+    Callable[[Dict], Awaitable[Tuple[bool, str, object]]],
+    Callable[[Dict], 'EnhancedStepResult'],
+    Callable[[Dict], Awaitable['EnhancedStepResult']]
 ]
 
 
@@ -113,21 +140,40 @@ class WorkflowRunner:
         for attempt in range(1, max_retries + 2):  # +1 for initial attempt
             try:
                 func = step["func"]
+                
+                # The result from an enhanced step is an EnhancedStepResult object
+                step_result_obj = None
                 if inspect.iscoroutinefunction(func):
-                    success, message, data = await asyncio.wait_for(
+                    step_result_obj = await asyncio.wait_for(
                         func(self.context),
                         timeout=timeout
                     )
                 else:
                     loop = asyncio.get_running_loop()
-                    success, message, data = await asyncio.wait_for(
+                    step_result_obj = await asyncio.wait_for(
                         loop.run_in_executor(self.thread_pool, func, self.context),
                         timeout=timeout
                     )
 
-                result.success = success
-                result.message = message
-                result.data = data
+                # Handle different types of step results for backward compatibility
+                if hasattr(step_result_obj, 'to_dict'): # EnhancedStepResult
+                    enhanced_data = step_result_obj.to_dict()
+                    result.success = enhanced_data['success']
+                    result.message = enhanced_data['message']
+                    result.data = enhanced_data.get('data')
+                    result.derived_metrics = enhanced_data.get('derived_metrics', {})
+                    result.tags = enhanced_data.get('tags', [])
+                    
+                    # Debug print
+                    print(f"[DEBUG] Step {result.name} metrics: {result.derived_metrics}")
+                    print(f"[DEBUG] Step {result.name} tags: {result.tags}")
+                    
+                elif isinstance(step_result_obj, tuple) and len(step_result_obj) == 3: # Legacy tuple
+                    result.success, result.message, result.data = step_result_obj
+                else: # Fallback for unexpected types
+                    result.success = False
+                    result.message = f"Invalid return type from step: {type(step_result_obj)}"
+
                 result.attempts = attempt
                 break
             except asyncio.TimeoutError:
@@ -228,19 +274,9 @@ class WorkflowRunner:
 
     def get_results_dict(self):
         """Get results as dictionary for UI (optional)"""
-        return [
-            {
-                "name": r.name,
-                "success": r.success,
-                "message": r.message,
-                "skipped": r.skipped,
-                "executed": r.executed,
-                "time_taken": r.time_taken,
-                "attempts": r.attempts,
-                "data": r.data,
-            }
-            for r in self.results
-        ]
+        results_dict = [r.to_dict() for r in self.results]
+        print(f"[DEBUG] Serialized results: {json.dumps(results_dict, indent=2)}")  # Debug statement
+        return results_dict
 
 
 def print_summary(results: List[StepResult], verbose: bool = False, output_format: str = "rich"):
@@ -284,6 +320,7 @@ def print_summary(results: List[StepResult], verbose: bool = False, output_forma
     table.add_column("Time (s)", justify="right", width=10)
     table.add_column("Attempts", width=8)
     table.add_column("Details", width=50)
+    table.add_column("Derived Metrics", width=30)  # New column for derived metrics
 
     for result in results:
         name = result.name
@@ -295,6 +332,10 @@ def print_summary(results: List[StepResult], verbose: bool = False, output_forma
         if not verbose and len(details) > 100:
             details = details[:100] + "..."
 
+        # Get derived metrics if available
+        derived_metrics = getattr(result, 'derived_metrics', {})
+        metrics_str = json.dumps(derived_metrics) if derived_metrics else ""
+
         if result.skipped:
             status = "[yellow]Skipped[/]"
         elif result.success:
@@ -302,7 +343,7 @@ def print_summary(results: List[StepResult], verbose: bool = False, output_forma
         else:
             status = "[red]Failed[/]"
 
-        table.add_row(name, status, time_taken, attempts, details)
+        table.add_row(name, status, time_taken, attempts, details, metrics_str)
 
     console.print(table)
 

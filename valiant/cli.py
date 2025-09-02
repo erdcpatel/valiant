@@ -47,7 +47,9 @@ def print_json_summary(results: List[StepResult]) -> str:
                 "skipped": r.skipped,
                 "executed": r.executed,
                 "time_taken": round(r.time_taken, 2),
-                "attempts": r.attempts
+                "attempts": r.attempts,
+                "derived_metrics": getattr(r, 'derived_metrics', {}),
+                "tags": getattr(r, 'tags', [])
             }
             for r in results
         ],

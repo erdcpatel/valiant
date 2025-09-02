@@ -68,6 +68,11 @@ stop_service() {
         if kill -0 $pid 2>/dev/null; then
             echo -e "${BLUE}Stopping $service_name (PID: $pid)...${NC}"
             kill $pid
+            sleep 2
+            if kill -0 $pid 2>/dev/null; then
+                echo -e "${YELLOW}Force stopping $service_name (PID: $pid)...${NC}"
+                kill -9 $pid
+            fi
             rm -f "$pid_file"
             echo -e "${GREEN}$service_name stopped${NC}"
         else
@@ -77,6 +82,104 @@ stop_service() {
     else
         echo -e "${YELLOW}$service_name is not running${NC}"
     fi
+}
+
+# Function to stop a service on macOS/Linux
+stop_service_unix() {
+    local service_name=$1
+    local port=$2
+    local pid_file="$PID_DIR/${service_name}.pid"
+
+    echo -e "${BLUE}Stopping $service_name...${NC}"
+
+    # Check if PID file exists
+    if [ -f "$pid_file" ]; then
+        local pid=$(cat "$pid_file")
+        if kill -0 $pid 2>/dev/null; then
+            echo -e "${BLUE}Stopping $service_name (PID: $pid)...${NC}"
+            kill $pid
+            sleep 2
+            if kill -0 $pid 2>/dev/null; then
+                echo -e "${YELLOW}Force stopping $service_name (PID: $pid)...${NC}"
+                kill -9 $pid
+            fi
+            rm -f "$pid_file"
+            echo -e "${GREEN}$service_name stopped${NC}"
+            return
+        else
+            echo -e "${YELLOW}PID $pid not running. Cleaning up PID file.${NC}"
+            rm -f "$pid_file"
+        fi
+    fi
+
+    # Check if port is in use
+    if lsof -i :$port > /dev/null 2>&1; then
+        echo -e "${BLUE}Port $port is in use. Finding and killing the process...${NC}"
+        local pid=$(lsof -ti :$port)
+        kill $pid
+        sleep 2
+        if lsof -i :$port > /dev/null 2>&1; then
+            echo -e "${YELLOW}Force killing process on port $port...${NC}"
+            kill -9 $pid
+        fi
+        echo -e "${GREEN}Process on port $port stopped.${NC}"
+    else
+        echo -e "${YELLOW}No process found on port $port.${NC}"
+    fi
+}
+
+# Function to stop a service on Windows
+stop_service_windows() {
+    local service_name=$1
+    local port=$2
+    local pid_file="$PID_DIR/${service_name}.pid"
+
+    echo "Stopping $service_name..."
+
+    # Check if PID file exists
+    if [ -f "$pid_file" ]; then
+        local pid=$(cat "$pid_file")
+        echo "Stopping $service_name (PID: $pid)..."
+        taskkill /PID $pid /F >nul 2>&1
+        if [ $? -eq 0 ]; then
+            echo "$service_name stopped."
+            rm -f "$pid_file"
+            return
+        else
+            echo "$service_name could not be stopped."
+        fi
+    fi
+
+    # Check if port is in use
+    local pid=$(netstat -ano | findstr :$port | awk '{print $5}')
+    if [ -n "$pid" ]; then
+        echo "Port $port is in use. Killing process $pid..."
+        taskkill /PID $pid /F >nul 2>&1
+        if [ $? -eq 0 ]; then
+            echo "Process on port $port stopped."
+        else
+            echo "Failed to stop process on port $port."
+        fi
+    else
+        echo "No process found on port $port."
+    fi
+}
+
+# Detect OS and use appropriate stop function
+stop_service_platform() {
+    local service_name=$1
+    local port=$2
+    case "$(uname -s)" in
+        Linux|Darwin)
+            stop_service_unix "$service_name" "$port"
+            ;;
+        CYGWIN*|MINGW*|MSYS*)
+            stop_service_windows "$service_name" "$port"
+            ;;
+        *)
+            echo "Unsupported platform."
+            ;;
+    esac
 }
 
 # Function to show status
@@ -125,11 +228,11 @@ case "${1:-start}" in
         echo -e "${GREEN}Logs: $LOG_DIR/${NC}"
         ;;
 
-    stop)
-        echo -e "${BLUE}Stopping Valiant UI Services...${NC}"
-        stop_service "streamlit"
-        stop_service "fastapi"
-        ;;
+        stop)
+            echo -e "${BLUE}Stopping Valiant UI Services...${NC}"
+            stop_service_platform "streamlit" 8501
+            stop_service_platform "fastapi" 8000
+            ;;
 
     restart)
         echo -e "${BLUE}Restarting Valiant UI Services...${NC}"

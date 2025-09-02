@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import asyncio
@@ -15,6 +15,7 @@ if str(project_root) not in sys.path:
 
 # Import after setting path
 from valiant.framework.api import ValiantAPI
+from valiant.ui.logger import fastapi_logger
 
 app = FastAPI(
     title="Valiant Workflow API",
@@ -32,6 +33,14 @@ app.add_middleware(
     allow_methods=["*"],  # Allows all methods
     allow_headers=["*"],  # Allows all headers
 )
+
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    fastapi_logger.info(f"Request: {request.method} {request.url}")
+    response = await call_next(request)
+    fastapi_logger.info(f"Response status: {response.status_code}")
+    return response
 
 
 @app.get("/")
@@ -99,7 +108,7 @@ async def get_workflow_schema(workflow_name: str):
         schema = ValiantAPI.get_workflow_input_schema(workflow_name)
         return {
             "success": True,
-            "data": schema,
+                            "data": schema,
             "workflow": workflow_name,
             "field_count": len(schema)
         }
@@ -115,11 +124,20 @@ async def run_workflow(workflow_name: str, config: Optional[Dict[str, Any]] = No
     config = config or {}
 
     try:
-        # Extract parameters
+        # Extract parameters with defaults
         environment = config.get('environment', 'dev')
         timeout = config.get('timeout', 30.0)
         retries = config.get('retries', 1)
         context_overrides = config.get('context', {})
+
+        # Use provided context or defaults
+        if not context_overrides:
+            context_overrides = {
+                'demo_text': 'Hello Enhanced Framework!',
+                'demo_number': 42,
+                'demo_select': 'option1',
+                'enable_advanced': False
+            }
 
         # Validate parameters
         if not isinstance(timeout, (int, float)) or timeout <= 0:
@@ -137,6 +155,24 @@ async def run_workflow(workflow_name: str, config: Optional[Dict[str, Any]] = No
             context_overrides=context_overrides
         )
 
+        # Process the results to ensure metrics and tags are included
+        formatted_results = []
+        for r in result["results"]:
+            step_result = {
+                "name": str(r["name"]),
+                "success": bool(r["success"]),
+                "message": str(r["message"]),
+                "skipped": bool(r["skipped"]),
+                "executed": bool(r["executed"]),
+                "time_taken": float(r["time_taken"]),
+                "attempts": int(r["attempts"]),
+                "metadata": {},  # We're not using metadata anymore
+                "derived_metrics": r.get("derived_metrics", {}),
+                "step_config": r.get("_step_config", {}),
+                "tags": r.get("tags", [])
+            }
+            formatted_results.append(step_result)
+
         return {
             "success": True,
             "workflow": workflow_name,
@@ -150,10 +186,10 @@ async def run_workflow(workflow_name: str, config: Optional[Dict[str, Any]] = No
                 "skipped_steps": sum(1 for r in result["results"] if r["skipped"]),
                 "total_time": sum(r["time_taken"] for r in result["results"] if r["executed"])
             },
-            "results": result["results"],
+            "results": formatted_results,
             "context": result["context"]
         }
-
+            
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except HTTPException:
