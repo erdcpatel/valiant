@@ -55,77 +55,89 @@ class MyWorkflow(EnhancedBaseWorkflow):
 ```python
 from valiant.framework.decorators import APIAuthStep, APIGetStep
 
-class APIWorkflow(EnhancedBaseWorkflow):
-    def __init__(self, runner=None):
-        super().__init__(runner)
-        
-        # Add authentication step
-        self.add_template(APIAuthStep(
-            name="Login",
-            url="/auth/login",
+    @step(name="Hello", order=1)
+    def say_hello(self, context):
+        username = context.get("username", "World")
+        return EnhancedStepResult.create_success(
+            "Hello",
+            f"Hello, {username}!",
+            {"greeting": f"Hello, {username}!"}
+        )
             store_as="auth_token"
-        ))
+    requires=["Login"],           # Required step names (not context keys)
         
         # Add data retrieval step
-        self.add_template(APIGetStep(
-            name="Get-Profile",
-            url="/user/profile",
-            requires_auth=True,
-            store_as="user_data"
-        ))
-```
-
----
-
-## 🎨 **Enhanced Workflows with Decorators**
-
-### Step Decorator Features
-
-The `@step` decorator provides powerful features for step registration:
-
-```python
-@step(
-    name="Custom-Step-Name",      # Optional: defaults to method name
-    order=10,                     # Execution order (lower = earlier)
-    timeout=60,                   # Step timeout in seconds
-    retries=3,                    # Number of retry attempts
-    parallel_group="data_fetch",  # Group for parallel execution
-    requires=["auth_token"],      # Required context keys
-    description="Fetches user data", # Step description
-    tags=["api", "user"],         # Tags for categorization
-    enabled=True,                 # Whether step is enabled
-    skip_on_failure=False         # Skip if previous steps failed
-)
-def my_step(self, context: Dict) -> EnhancedStepResult:
-    # Step implementation
-    return EnhancedStepResult.success("Step completed")
-```
-
-### Enhanced Step Results
-
-The new `EnhancedStepResult` class provides rich result handling:
-
-```python
 # Success result
-return EnhancedStepResult.success(
+r = EnhancedStepResult.create_success(
     "Step-Name",
     "Operation completed successfully",
     {"data": "result"}
-).add_metadata("duration", "2.5s").add_tag("performance")
+)
+r.add_tag("performance").add_metric("duration_ms", 2500)
+return r
 
 # Failure result
-return EnhancedStepResult.failure(
+return EnhancedStepResult.create_failure(
     "Step-Name",
     "Operation failed",
     exception=e
 )
 
 # Skip result
-return EnhancedStepResult.skip(
+return EnhancedStepResult.create_skip(
     "Step-Name",
     "Skipped due to condition"
 )
+    name="Custom-Step-Name",      # Optional: defaults to method name
+    @step(name="API-Login",
+    timeout=60,                   # Step timeout in seconds
+    retries=3,                    # Number of retry attempts
+                return EnhancedStepResult.create_failure(
+    requires=["auth_token"],      # Required context keys
+    description="Fetches user data", # Step description
+    tags=["api", "user"],         # Tags for categorization
+                return EnhancedStepResult.create_success(
+    skip_on_failure=False         # Skip if previous steps failed
+)
+def my_step(self, context: Dict) -> EnhancedStepResult:
+    # Step implementation
+                return EnhancedStepResult.create_failure(
 ```
+
+### Enhanced Step Results
+
+The new `EnhancedStepResult` class provides rich result handling:
+    def step_one(self, context):
+        return True, "Step 1 complete", None
+    def enhanced_step(self, context):
+        return EnhancedStepResult.create_success(
+            "Enhanced-Step",
+            "Enhanced step works too!"
+        )
+).add_metadata("duration", "2.5s").add_tag("performance")
+
+# New (enhanced)
+def step_one(self, context):
+    return EnhancedStepResult.create_success(
+        "Step1",
+        "Step completed",
+        {"data": "value"}
+    ).add_tag("processing")
+
+- `@step()`: Register method as workflow step
+- Parameters: `name`, `order`, `timeout`, `retries`, `parallel_group`, `requires` (step names), `priority`, `description`, `tags`, `enabled`, `skip_on_failure`
+    "Step-Name",
+- `auto_discover_steps()`: Discover decorated steps
+- `register_template_steps()`: Register template steps
+- `workflow_registry`: Global workflow registry
+
+---
+
+## Metrics, Tags, and Metadata
+
+- Use `result.add_metric(key, value)` to emit metrics that appear in API/UI/CLI
+- Use `result.add_tag(tag)` to attach tags for filtering and reporting
+- Optional metadata can be stored on `result.metadata["key"] = value` for internal diagnostics; note: current API output does not surface metadata by default
 
 ### Automatic Step Discovery
 

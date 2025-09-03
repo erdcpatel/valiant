@@ -119,7 +119,7 @@ class EnhancedAPIWorkflow(EnhancedBaseWorkflow):
                 "Initialize-Context",
                 "Context initialized successfully",
                 {"base_url": context["base_url"]}
-            ).add_metadata("initialization_time", "2025-08-31T06:52:00Z").add_tag("setup")
+            ).add_tag("setup").add_metric("initialization_time", "2025-08-31T06:52:00Z")
             
         except Exception as e:
             return EnhancedStepResult.create_failure(
@@ -193,6 +193,7 @@ class EnhancedAPIWorkflow(EnhancedBaseWorkflow):
                 processed_data
             ).add_metadata("processing_time", "0.5s").add_tag("processing")
             
+            
         except Exception as e:
             return EnhancedStepResult.create_failure(
                 "Process-User-Data",
@@ -231,7 +232,7 @@ class EnhancedAPIWorkflow(EnhancedBaseWorkflow):
                 "Generate-Report",
                 "Workflow report generated successfully",
                 report
-            ).add_metadata("report_size", len(str(report))).add_tag("reporting")
+            ).add_tag("reporting").add_metric("report_size", len(str(report)))
             
         except Exception as e:
             return EnhancedStepResult.create_failure(
