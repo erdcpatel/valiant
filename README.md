@@ -1,80 +1,140 @@
-# Valiant Workflow Automation
 
-Valiant is a generic, extensible tool to automate and orchestrate validation workflows. It allows you to define, configure, and execute a series of validation steps for any system or API, with a modern UI and API for both technical and non-technical users.
+# Valiant Workflow Automation Platform
 
----
-
-## Features
-
-- **Dynamic Workflow Engine:** Define workflows as Python classes with step functions.
-- **Flexible Input Schema:** Supports text, password, number, select/dropdown, date, and checkbox/boolean fields.
-- **Modern UI:** Streamlit-based web UI for running workflows and viewing results.
-- **REST API:** FastAPI backend for programmatic workflow execution and integration.
-- **Step Results Table:** Compact, user-friendly results table with expandable JSON data per step.
-- **Service Management:** Shell script to start/stop/restart/status both UI and API services.
-- **Logging:** Per-service log files for troubleshooting.
-- **Extensible:** Add new workflows by subclassing `BaseWorkflow`.
+Valiant is an extensible Python platform for automating, orchestrating, and validating complex workflows. It supports modern UI, REST API, and CLI interfaces, with advanced features for metrics, tagging, templates, and developer productivity.
 
 ---
 
-## Quick Start
+## Requirements & Environment
 
-### 1. Clone the Repository
+- **Python**: 3.10+ recommended (tested on 3.10, 3.11, 3.12)
+- **OS**: Linux, macOS, Windows (WSL recommended)
+- **Dependencies**:
+  - Core: `requirements.txt`
+  - UI/API: `requirements-ui.txt`
+- **Recommended**: Use a virtual environment (venv, conda)
 
+### Environment Setup
 ```bash
-git clone https://github.com/your-org/valiant.git
-cd valiant
-```
-
-### 2. Install Requirements
-
-Install core dependencies:
-```bash
-pip install -r requirements.txt
-```
-
-Install UI dependencies (required for Streamlit and FastAPI):
-```bash
-pip install -r requirements-ui.txt
-```
-
-Or install all dependencies at once:
-```bash
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt -r requirements-ui.txt
 ```
 
-### 3. Start the Services
+---
 
-From the project root directory:
+
+
+
+## Service Management
+
+The `start_services.sh` script manages both UI and API services:
 ```bash
 cd valiant/ui
-bash start_services.sh start
-```
-
-The script will automatically set the correct PYTHONPATH and start both services.
-
-- **Streamlit UI:** [http://localhost:8501](http://localhost:8501)
-- **FastAPI:** [http://localhost:8000/docs](http://localhost:8000/docs)
-
-### 4. Stop the Services
-
-```bash
-bash start_services.sh stop
+bash start_services.sh start      # Start both services
+bash start_services.sh stop       # Stop both services
+bash start_services.sh restart    # Restart both services
+bash start_services.sh status     # Check service status
+bash start_services.sh logs fastapi    # View FastAPI logs
+bash start_services.sh logs streamlit  # View Streamlit logs
+bash start_services.sh clean      # Clean log and PID files
 ```
 
 ---
 
-## Directory Structure
 
+  - `GET /workflows`
+          "demo_number": 42,
+
+## Workflow Development
+
+### Add a New Workflow
+1. Create a Python file in `valiant/workflows/`
+2. Subclass `EnhancedBaseWorkflow` (recommended) or `BaseWorkflow`
+3. Define input fields via `_get_input_fields_impl()`
+4. Register steps using the `@step` decorator or templates
+5. Register your workflow in `valiant/workflows/config.py`
+
+### Example: Enhanced Workflow
+```python
+from valiant.framework.enhanced_workflow import EnhancedBaseWorkflow
+from valiant.framework.decorators import step, EnhancedStepResult
+from valiant.framework.workflow import InputField, InputType
+
+class MyWorkflow(EnhancedBaseWorkflow):
+  def _get_input_fields_impl(self):
+    return [
+      InputField(name="username", type=InputType.TEXT, label="Username"),
+      InputField(name="password", type=InputType.PASSWORD, label="Password")
+    ]
+
+  @step(name="Authenticate", order=1)
+  def authenticate(self, context):
+    # ... authentication logic ...
+    return EnhancedStepResult.create_success("Authenticate", "Authenticated")
 ```
-valiant/
-  framework/         # Core engine, workflow base classes
-  workflows/         # Example and custom workflows
-  ui/
-    streamlit_app.py # Streamlit UI
-    fastapi_app.py   # FastAPI backend
-    start_services.sh# Service management script
-  requirements.txt   # Core dependencies
+
+### Templates & Builder Pattern
+```python
+from valiant.framework.enhanced_workflow import WorkflowBuilder
+
+workflow = (WorkflowBuilder(EnhancedBaseWorkflow)
+  .add_auth_step(name="Login", url="/auth/login")
+  .add_api_get_step(name="Get-Profile", url="/user/profile", requires_auth=True)
+  .add_cli_step(name="Check-System", command="uptime")
+  .add_validation_step(name="Validate-Profile", data_key="user_data")
+  .build()
+)
+```
+
+---
+
+## Enhanced Features
+
+- **Decorator-based step registration**: Use `@step` for automatic discovery
+- **Pre-built templates**: APIAuthStep, APIGetStep, CLIStep, ValidationStep
+- **Fluent builder pattern**: Compose workflows with chained methods
+- **Rich step results**: Metrics, tags, metadata, expandable data
+- **Backward compatibility**: Legacy workflows still supported
+
+---
+
+## Metrics & Tags
+
+- Every step can emit metrics (`add_metric(key, value)`) and tags (`add_tag(tag)`) for reporting and filtering
+- Metrics and tags are visible in API, UI, and CLI outputs
+- Use metrics for performance, validation, and diagnostics
+- Use tags for categorization, filtering, and reporting
+
+---
+
+## Troubleshooting & FAQ
+
+**Common Issues:**
+- Import errors: Ensure PYTHONPATH includes project root (use start_services.sh)
+- Missing dependencies: Install both requirements files
+- Service not starting: Check logs in `valiant/ui/logs/`
+- CLI prompts for input: Use `--set` to provide all required context
+- API returns empty metrics/tags: Ensure workflow steps use EnhancedStepResult and add metrics/tags
+
+**FAQ:**
+- **Q:** Can I use legacy workflows? **A:** Yes, full backward compatibility is maintained
+- **Q:** How do I add a new step type? **A:** Subclass StepTemplate and register via add_template()
+- **Q:** How do I debug step failures? **A:** Check logs, enable verbose output, inspect metrics/tags
+
+---
+
+## Support & Contribution
+
+- For questions, open an issue or discussion on GitHub
+- See [WORKFLOW_DEVELOPMENT_GUIDE.md](WORKFLOW_DEVELOPMENT_GUIDE.md) for advanced developer docs
+- Contributions welcome: fork, branch, PR with clear description
+
+---
+
+**Valiant Workflow Automation Platform** — Enterprise-ready, extensible, and developer-friendly
+
+---
   requirements-ui.txt# UI dependencies (Streamlit, FastAPI)
   run.py            # CLI entry point
 ```
