@@ -1,13 +1,13 @@
 
 # Valiant Workflow Automation Platform
 
-Valiant is an extensible Python platform for automating, orchestrating, and validating complex workflows. It supports modern UI, REST API, and CLI interfaces, with advanced features for metrics, tagging, templates, and developer productivity.
+Valiant is a **streamlined Python workflow automation platform** designed for simplicity and developer productivity. Create powerful workflows with minimal code using our unified architecture and decorator-based step system.
 
 ---
 
 ## Requirements & Environment
 
-- **Python**: 3.10+ recommended (tested on 3.10, 3.11, 3.12)
+- **Python**: 3.10+ recommended (tested on 3.10, 3.11, 3.12, 3.13)
 - **OS**: Linux, macOS, Windows (WSL recommended)
 - **Dependencies**:
   - Core: `requirements.txt`
@@ -23,15 +23,42 @@ pip install -r requirements.txt -r requirements-ui.txt
 
 ---
 
+## Quick Start
 
+### Create Your First Workflow
+```python
+from valiant import Workflow, step, InputField, InputType
 
+@workflow(name="my_workflow")
+class MyWorkflow(Workflow):
+    def get_input_fields(self):
+        return [
+            InputField(name="username", type=InputType.TEXT, required=True),
+            InputField(name="action", type=InputType.TEXT, required=True)
+        ]
+    
+    @step(name="Process-User", order=1)
+    def process_user(self, context):
+        username = context.get("username")
+        action = context.get("action")
+        
+        # Your workflow logic here
+        return self.success(f"Processed {action} for {username}")
+```
+
+### Run Your Workflow
+```bash
+python run.py run my_workflow --set username=alice --set action=create
+```
+
+---
 
 ## Service Management
 
 The `start_services.sh` script manages both UI and API services:
 ```bash
 cd valiant/ui
-bash start_services.sh start      # Start both services
+bash start_services.sh start      # Start both services (FastAPI + Streamlit)
 bash start_services.sh stop       # Stop both services
 bash start_services.sh restart    # Restart both services
 bash start_services.sh status     # Check service status
@@ -40,87 +67,183 @@ bash start_services.sh logs streamlit  # View Streamlit logs
 bash start_services.sh clean      # Clean log and PID files
 ```
 
+**Services:**
+- **FastAPI**: `http://localhost:8000` - REST API for workflow execution
+- **Streamlit**: `http://localhost:8501` - Web UI for interactive workflow management
+
 ---
-
-
-  - `GET /workflows`
-          "demo_number": 42,
 
 ## Workflow Development
 
-### Add a New Workflow
-1. Create a Python file in `valiant/workflows/`
-2. Subclass `EnhancedBaseWorkflow` (recommended) or `BaseWorkflow`
-3. Define input fields via `_get_input_fields_impl()`
-4. Register steps using the `@step` decorator or templates
-5. Register your workflow in `valiant/workflows/config.py`
+### Unified Architecture - Simple and Clean
 
-### Example: Enhanced Workflow
+Valiant uses a **single `Workflow` base class** with decorator-based step registration:
+
 ```python
-from valiant.framework.enhanced_workflow import EnhancedBaseWorkflow
-from valiant.framework.decorators import step, EnhancedStepResult
-from valiant.framework.workflow import InputField, InputType
+from valiant import Workflow, step, workflow, InputField, InputType
 
-class MyWorkflow(EnhancedBaseWorkflow):
-  def _get_input_fields_impl(self):
-    return [
-      InputField(name="username", type=InputType.TEXT, label="Username"),
-      InputField(name="password", type=InputType.PASSWORD, label="Password")
-    ]
-
-  @step(name="Authenticate", order=1)
-  def authenticate(self, context):
-    # ... authentication logic ...
-    return EnhancedStepResult.create_success("Authenticate", "Authenticated")
+@workflow(name="user_management")
+class UserManagementWorkflow(Workflow):
+    def get_input_fields(self):
+        return [
+            InputField(name="username", type=InputType.TEXT, required=True),
+            InputField(name="email", type=InputType.TEXT, required=True),
+            InputField(name="action", type=InputType.SELECT, 
+                      options=["create", "update", "delete"], required=True),
+            InputField(name="role", type=InputType.SELECT, 
+                      options=["admin", "user", "guest"], required=True)
+        ]
+    
+    @step(name="Validate-Input", order=1)
+    def validate_input(self, context):
+        username = context.get("username")
+        email = context.get("email")
+        
+        if not username or len(username) < 3:
+            return self.failure("Username must be at least 3 characters")
+        
+        if "@" not in email:
+            return self.failure("Invalid email format")
+            
+        return self.success("Input validation passed")
+    
+    @step(name="Process-User", order=2)
+    def process_user(self, context):
+        action = context.get("action")
+        username = context.get("username")
+        
+        # Your business logic here
+        if action == "create":
+            result = f"Created user {username}"
+        elif action == "update":
+            result = f"Updated user {username}"
+        else:
+            result = f"Deleted user {username}"
+            
+        return self.success(result, data={"processed_user": username})
 ```
 
-### Templates & Builder Pattern
-```python
-from valiant.framework.enhanced_workflow import WorkflowBuilder
+### Key Features
 
-workflow = (WorkflowBuilder(EnhancedBaseWorkflow)
-  .add_auth_step(name="Login", url="/auth/login")
-  .add_api_get_step(name="Get-Profile", url="/user/profile", requires_auth=True)
-  .add_cli_step(name="Check-System", command="uptime")
-  .add_validation_step(name="Validate-Profile", data_key="user_data")
-  .build()
-)
+- **🎯 Single Import**: `from valiant import Workflow, step, workflow`
+- **🚀 Decorator-Based**: Use `@step` for automatic step registration
+- **📝 Rich Results**: Built-in `success()`, `failure()`, `skip()` methods
+- **🔧 Input Validation**: Type-safe input fields with validation
+- **📊 Metrics & Tags**: Add metrics and tags for reporting
+- **🔄 Auto-Discovery**: Workflows are automatically discovered and registered
+
+---
+
+## CLI Usage
+
+Run workflows from command line:
+```bash
+python run.py run <workflow_name>                    # Interactive mode
+python run.py run <workflow_name> --set key=value   # Provide parameters
+python run.py list                                  # List available workflows
+```
+
+Available workflows: `demo`, `user_management`
+
+### Example Commands
+```bash
+# Run demo workflow with parameters
+python run.py run demo --set user_name="Alice" --set user_email="alice@example.com"
+
+# Run user management workflow
+python run.py run user_management --set username=john --set email=john@example.com --set action=create --set role=user
 ```
 
 ---
 
-## Enhanced Features
+## Step Results and Error Handling
 
-- **Decorator-based step registration**: Use `@step` for automatic discovery
-- **Pre-built templates**: APIAuthStep, APIGetStep, CLIStep, ValidationStep
-- **Fluent builder pattern**: Compose workflows with chained methods
-- **Rich step results**: Metrics, tags, metadata, expandable data
-- **Backward compatibility**: Legacy workflows still supported
+```python
+@step(name="Example-Step", order=1)
+def example_step(self, context):
+    try:
+        # Your logic here
+        result = process_data(context)
+        
+        # Success with data and metrics
+        return self.success(
+            message="Data processed successfully",
+            data={"processed_items": len(result)},
+            tags=["processing", "success"],
+            metrics={"duration": 2.5, "items_count": len(result)}
+        )
+        
+    except ValidationError as e:
+        return self.failure(f"Validation failed: {str(e)}")
+    
+    except Exception as e:
+        return self.failure(f"Unexpected error: {str(e)}")
+```
 
 ---
 
-## Metrics & Tags
+## API Endpoints
 
-- Every step can emit metrics (`add_metric(key, value)`) and tags (`add_tag(tag)`) for reporting and filtering
-- Metrics and tags are visible in API, UI, and CLI outputs
-- Use metrics for performance, validation, and diagnostics
-- Use tags for categorization, filtering, and reporting
+- **FastAPI Server**: `http://localhost:8000`
+  - `GET /workflows` - List available workflows
+  - `POST /run/{workflow_name}` - Execute workflow with JSON payload
+  - `GET /health` - Health check endpoint
+
+### Example API Usage
+```bash
+curl -X POST http://localhost:8000/run/user_management \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "alice",
+    "email": "alice@example.com",
+    "action": "create",
+    "role": "admin"
+  }'
+```
 
 ---
 
-## Troubleshooting & FAQ
+## Troubleshooting
 
 **Common Issues:**
-- Import errors: Ensure PYTHONPATH includes project root (use start_services.sh)
-- Missing dependencies: Install both requirements files
-- Service not starting: Check logs in `valiant/ui/logs/`
-- CLI prompts for input: Use `--set` to provide all required context
-- API returns empty metrics/tags: Ensure workflow steps use EnhancedStepResult and add metrics/tags
+- **Import errors**: Ensure PYTHONPATH includes project root (use start_services.sh)
+- **Missing dependencies**: Install both requirements files
+- **Service not starting**: Check logs in `valiant/ui/logs/`
+- **CLI prompts for input**: Use `--set` to provide all required parameters
+- **Workflow not found**: Check workflow registration in `valiant/workflows/config.py`
 
-**FAQ:**
-- **Q:** Can I use legacy workflows? **A:** Yes, full backward compatibility is maintained
-- **Q:** How do I add a new step type? **A:** Subclass StepTemplate and register via add_template()
-- **Q:** How do I debug step failures? **A:** Check logs, enable verbose output, inspect metrics/tags
+**Environment Setup:**
+```bash
+# Check your Python version
+python --version
+
+# Activate virtual environment
+source .venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt -r requirements-ui.txt
+
+# Test CLI
+python run.py list
+```
+
+---
+
+## Project Structure
+
+```
+valiant/
+├── framework/           # Core workflow engine
+├── workflows/           # Workflow implementations
+│   ├── config.py       # Workflow registry
+│   ├── demo.py         # Demo workflow
+│   └── user_management.py
+├── ui/                 # Web interfaces
+│   ├── fastapi_app.py  # REST API
+│   ├── streamlit_app.py # Web UI
+│   └── start_services.sh
+└── config/             # Configuration files
+```
 
 ---
 
@@ -132,92 +255,4 @@ workflow = (WorkflowBuilder(EnhancedBaseWorkflow)
 
 ---
 
-**Valiant Workflow Automation Platform** — Enterprise-ready, extensible, and developer-friendly
-
----
-  requirements-ui.txt# UI dependencies (Streamlit, FastAPI)
-  run.py            # CLI entry point
-```
-
----
-
-## How to Add a Workflow
-
-1. Create a new Python file in `valiant/workflows/`.
-2. Subclass `BaseWorkflow` and implement:
-   - `get_input_fields()`
-   - `define_steps()`
-   - Step functions returning `(success, message, data)`
-3. Register your workflow in the API/UI if needed.
-
----
-
-## CLI Usage
-
-Run workflows from command line:
-```bash
-python run.py run <workflow_name>
-```
-
-Available workflows: `api`, `system`, `user`
-
-### Enhanced Workflow Features (NEW!)
-
-The framework now supports **decorator-based workflows** and **pre-built templates** for faster development:
-
-```python
-from valiant.framework.enhanced_workflow import EnhancedBaseWorkflow
-from valiant.framework.decorators import step, APIAuthStep
-
-class MyWorkflow(EnhancedBaseWorkflow):
-    def __init__(self, runner=None):
-        super().__init__(runner)
-        # Add pre-built authentication step
-        self.add_template(APIAuthStep(name="Login", url="/auth/login"))
-    
-    @step(name="Process-Data", order=2)
-    def process_data(self, context):
-        return EnhancedStepResult.success("Data processed!")
-```
-
-**Key Benefits:**
-- 🎯 **70-80% less boilerplate code**
-- 🚀 **Pre-built templates** for common patterns (API auth, CLI commands, validation)
-- 🔍 **Automatic step discovery** via decorators
-- 📝 **Enhanced error handling** and result types
-- 🔄 **100% backward compatible** with existing workflows
-
-See the [Workflow Development Guide](WORKFLOW_DEVELOPMENT_GUIDE.md) for complete documentation.
-
-## Example Workflow Step
-
-```python
-def step_check_api(self, context: dict) -> tuple:
-    response = ... # your logic
-    return True, "API check passed", {"response": response}
-```
-
-## Service Management Script
-
-The startup script provides convenient commands to manage both UI services:
-
-```bash
-cd valiant/ui
-bash start_services.sh start    # Start both services
-bash start_services.sh stop     # Stop both services  
-bash start_services.sh restart  # Restart both services
-bash start_services.sh status   # Check service status
-bash start_services.sh logs fastapi    # View FastAPI logs
-bash start_services.sh logs streamlit  # View Streamlit logs
-bash start_services.sh clean    # Clean log and PID files
-```
-
-The script automatically sets the correct PYTHONPATH and handles service management with proper logging.
-
-## Troubleshooting
-
-If you encounter import errors when starting services:
-- Ensure you're running the start script from the project root
-- The script automatically sets PYTHONPATH to include the project root
-- Make sure both requirements.txt and requirements-ui.txt are installed
-- Check the log files in `valiant/ui/logs/` for detailed error messages
+**Valiant Workflow Automation Platform** — Simple, powerful, and developer-friendly

@@ -1,42 +1,91 @@
 {
-  "username": "admin",
-  "password": "secret",
-  "environment": "dev",
-  "timeout": 30,
-  "retries": 2,
-  "headers": {
-    "Content-Type": "application/json",
-    "Authorization": "Bearer token_2515"
+  "demo_text": "Hello",
+  "demo_number": "42",
+  "demo_select": "option1",
+  "enable_advanced": "False",
+  "demo_date": "20250815",
+  "processed_text": "HELLO",
+  "calculated_value": "4242",
+  "processing_mode": "option1",
+  "workflow_start_time": "2025-08-31T07:30:00Z",
+  "final_text": "BASIC: HELLO",
+  "text_length": 12,
+  "complexity_level": "basic",
+  "math_results": {
+    "original": 42,
+    "doubled": 4242,
+    "squared": 17994564,
+    "factorial": 3628800,
+    "cube": 76332940488,
+    "square_root": 65.13063795173512,
+    "fibonacci": 6765
   },
-  "auth_token": "token_2515",
-  "user_id": 61,
-  "user_profile": {
-    "name": "User 61",
-    "email": "user61@example.com",
-    "role": "user"
+  "calculation_count": 7,
+  "validation_results": {
+    "text_valid": true,
+    "text_length": 12,
+    "math_valid": true,
+    "calculation_count": 7,
+    "errors": [],
+    "warnings": [
+      "Squared value is very large"
+    ],
+    "overall_valid": true
   },
-  "data": [
-    {
-      "id": 1001,
-      "product": "Laptop",
-      "value": 1200
+  "final_report": {
+    "workflow_name": "Enhanced Demo Workflow",
+    "execution_summary": {
+      "status": "completed",
+      "total_steps": 5,
+      "successful_steps": 5,
+      "failed_steps": 0,
+      "data_quality": "high",
+      "processing_mode": "option1"
     },
-    {
-      "id": 1002,
-      "product": "Monitor",
-      "value": 300
+    "input_data": {
+      "demo_text": "Hello",
+      "demo_number": "42",
+      "demo_select": "option1",
+      "enable_advanced": "False",
+      "demo_date": "20250815"
     },
-    {
-      "id": 1003,
-      "product": "Keyboard",
-      "value": 80
+    "processing_results": {
+      "final_text": "BASIC: HELLO",
+      "text_length": 12,
+      "complexity_level": "basic",
+      "math_results": {
+        "original": 42,
+        "doubled": 4242,
+        "squared": 17994564,
+        "factorial": 3628800,
+        "cube": 76332940488,
+        "square_root": 65.13063795173512,
+        "fibonacci": 6765
+      },
+      "calculation_count": 7
+    },
+    "validation_summary": {
+      "overall_valid": true,
+      "error_count": 0,
+      "warning_count": 1,
+      "text_valid": true,
+      "math_valid": true
+    },
+    "metadata": {
+      "workflow_version": "1.0.0",
+      "framework_type": "enhanced",
+      "step_count": 5,
+      "parallel_groups": [
+        "data_processing"
+      ],
+      "execution_time": "simulated",
+      "enhanced_features_used": [
+        "decorator_registration",
+        "automatic_discovery",
+        "enhanced_results",
+        "parallel_execution",
+        "rich_validation"
+      ]
     }
-  ],
-  "report": {
-    "user": "User 61",
-    "email": "user61@example.com",
-    "item_count": 3,
-    "total_value": 1580,
-    "status": "completed"
   }
 }

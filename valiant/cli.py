@@ -26,7 +26,12 @@ def load_workflow(workflow_identifier: str) -> type:
         module_name, class_name = full_path.rsplit('.', 1)
         module = importlib.import_module(module_name)
         workflow_class = getattr(module, class_name)
-        if not issubclass(workflow_class, BaseWorkflow):
+        
+        # Check if it's the new unified workflow or legacy
+        from valiant.framework.workflow_unified import Workflow
+        from valiant.framework.workflow import BaseWorkflow
+        
+        if not (issubclass(workflow_class, Workflow) or issubclass(workflow_class, BaseWorkflow)):
             raise TypeError("Not a valid workflow class")
         return workflow_class
     except (ImportError, AttributeError, ValueError, TypeError) as e:
@@ -72,10 +77,10 @@ def run(
         retries: int = typer.Option(1, help="Number of retries for failed steps"),
         output_format: str = typer.Option("rich", "--output", help="Output format: rich or json"),
         save_context: bool = typer.Option(False, help="Save context to context.json"),
-        set_context: Optional[str] = typer.Option(
+        set_context: Optional[List[str]] = typer.Option(
             None,
             "--set",
-            help="Set manual context values (comma-separated key=value pairs)"
+            help="Set manual context values (key=value format, can be used multiple times)"
         ),
         environment: str = typer.Option(
             None,
@@ -107,7 +112,7 @@ def run(
 
     # Set manual context values
     if set_context:
-        for item in set_context.split(','):
+        for item in set_context:
             if '=' in item:
                 key, value = item.split('=', 1)
                 runner.context[key] = value

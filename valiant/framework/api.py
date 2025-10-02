@@ -52,7 +52,7 @@ class ValiantAPI:
         # Create workflow instance
         workflow = workflow_class(runner)
 
-        # Get required inputs and provide empty values (UI will handle real inputs)
+        # Get required inputs and provide empty values only if not already provided
         for prompt, key, is_secret in workflow.get_required_inputs():
             if key not in runner.context:
                 runner.context[key] = ""  # Placeholder, UI will provide real values
