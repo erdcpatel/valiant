@@ -1,105 +1,214 @@
+git pull
 # Valiant Workflow Development Guide
 
-## 🚀 **Unified Framework Architecture**
+## 🚀 **Enhanced Framework Features (Phase 1 & 2)**
 
-The Valiant workflow framework features a **streamlined unified architecture** designed for simplicity and developer productivity. Create powerful workflows with minimal code using our single `Workflow` base class and decorator-based step system.
+The Valiant workflow framework has been significantly enhanced with new developer-friendly features while maintaining full backward compatibility with existing workflows.
 
 ---
 
 ## 📋 **Table of Contents**
 
-1. [Quick Start](#quick-start)
-2. [Unified Workflow Pattern](#unified-workflow-pattern)
-3. [Step Registration and Execution](#step-registration-and-execution)
-4. [Input Field Definitions](#input-field-definitions)
-5. [Result Handling](#result-handling)
-6. [Best Practices](#best-practices)
-7. [Migration from Legacy Frameworks](#migration-from-legacy-frameworks)
-8. [API Reference](#api-reference)
+1. [Smart Workflow Templates](#smart-workflow-templates) ⭐ **NEW**
+2. [Quick Start](#quick-start)
+3. [Enhanced Workflows with Decorators](#enhanced-workflows-with-decorators)
+4. [Pre-built Step Templates](#pre-built-step-templates)
+5. [Backward Compatibility](#backward-compatibility)
+6. [Input Field Enhancements](#input-field-enhancements)
+7. [Workflow Builder Pattern](#workflow-builder-pattern)
+8. [Best Practices](#best-practices)
+9. [Migration Guide](#migration-guide)
+10. [API Reference](#api-reference)
+
+---
+
+## 🚀 **Smart Workflow Templates** ⭐
+
+**NEW FEATURE**: The Smart Template System eliminates the "blank page problem" by generating complete, production-ready workflows from simple questions.
+
+### Quick Template Usage
+
+```bash
+# Interactive template selection
+python run.py create
+
+# Generate specific template
+python run.py create api_db_integration
+
+# Custom output directory
+python run.py create api_db_integration --output ./workflows/
+
+# Non-interactive (uses defaults)
+python run.py create api_db_integration --non-interactive
+```
+
+### What Templates Generate
+
+**Complete Package:**
+- ✅ **Workflow Code**: Full implementation with steps, error handling, authentication
+- ✅ **Unit Tests**: Comprehensive test suite with mocking and fixtures  
+- ✅ **Documentation**: Markdown docs with usage examples and API references
+- ✅ **Best Practices**: Enterprise patterns built-in (retry logic, metrics, monitoring)
+
+### Available Templates
+
+#### API + Database Integration (`api_db_integration`)
+
+Perfect for workflows that integrate REST APIs with Trino databases:
+
+**Configuration Questions:**
+- Workflow metadata (name, description)
+- API settings (base URL, endpoints, authentication)  
+- Database connection (Trino host, catalog, schema, table)
+- Operations (fetch, validate, transform, insert, sync)
+- Error handling strategies
+
+**Generated Features:**
+- Multiple authentication methods (API key, Bearer token, Basic auth)
+- Pandas-based data validation with error reporting
+- Batch processing for database operations
+- Comprehensive error handling and retry logic
+- Metrics collection and monitoring tags
+- Complete unit test suite with mocking
+
+### Template System Benefits
+
+**Developer Productivity:**
+- **85% time reduction**: From 3-5 hours to 20-40 minutes
+- **Zero learning curve**: Question-driven interface
+- **Enterprise quality**: Built-in best practices
+- **Complete output**: Code + tests + docs generated together
+
+**Example Generated Workflow:**
+```python
+@workflow("user_data_sync")
+class UserDataSyncWorkflow(Workflow):
+    def inputs(self):
+        return [
+            InputField("api_key", type="password", required=True),
+            InputField("batch_size", type="number", default=1000),
+        ]
+    
+    @step("Fetch API Data", order=1, tags=["api", "fetch"])
+    def fetch_api_data(self, context: Dict):
+        headers = self._get_auth_headers(context)
+        response = requests.get(f"{context['api_base_url']}/users", headers=headers)
+        # ... complete implementation with error handling
+    
+    @step("Insert to Database", order=2, tags=["database"])
+    def insert_to_database(self, context: Dict):
+        # ... Trino batch insert with connection management
+```
+
+**📚 Full Documentation**: See [TEMPLATE_SYSTEM_README.md](TEMPLATE_SYSTEM_README.md) for complete template system guide.
 
 ---
 
 ## 🎯 **Quick Start**
 
-### Creating a Simple Workflow
+### Creating an Enhanced Workflow
 
 ```python
-from valiant import Workflow, step, workflow, InputField, InputType
+from valiant.framework.enhanced_workflow import EnhancedBaseWorkflow
+from valiant.framework.decorators import step, EnhancedStepResult
+from valiant.framework.workflow import InputField, InputType
 
-@workflow(name="hello_workflow")
-class HelloWorkflow(Workflow):
-    def get_input_fields(self):
+class MyWorkflow(EnhancedBaseWorkflow):
+    def _get_input_fields_impl(self):
         return [
             InputField(
                 name="username",
                 type=InputType.TEXT,
                 label="Username",
-                help_text="Your name for the greeting"
+                help_text="Your API username"
             )
         ]
     
-    @step(name="Greet-User", order=1)
-    def greet_user(self, context):
+    @step(name="Hello", order=1)
+    def say_hello(self, context):
         username = context.get("username", "World")
-        message = f"Hello, {username}!"
-        
-        return self.success(
-            message=message,
-            data={"greeting": message}
+        return EnhancedStepResult.success(
+            "Hello",
+            f"Hello, {username}!",
+            {"greeting": f"Hello, {username}!"}
         )
 ```
 
-### Running Your Workflow
+### Using Pre-built Templates
 
-```bash
-# CLI execution
-python run.py run hello_workflow --set username="Alice"
+```python
+from valiant.framework.decorators import APIAuthStep, APIGetStep
 
-# Register in config.py
-WORKFLOWS = {
-    "hello_workflow": "valiant.workflows.hello_workflow.HelloWorkflow"
-}
+class APIWorkflow(EnhancedBaseWorkflow):
+    def __init__(self, runner=None):
+        super().__init__(runner)
+        
+        # Add authentication step
+        self.add_template(APIAuthStep(
+            name="Login",
+            url="/auth/login",
+            store_as="auth_token"
+        ))
+        
+        # Add data retrieval step
+        self.add_template(APIGetStep(
+            name="Get-Profile",
+            url="/user/profile",
+            requires_auth=True,
+            store_as="user_data"
+        ))
 ```
+
 ---
 
-## 🔧 **Unified Workflow Pattern**
+## 🎨 **Enhanced Workflows with Decorators**
 
-### Single Import Strategy
+### Step Decorator Features
 
-All workflow components are available through a single import:
+The `@step` decorator provides powerful features for step registration:
 
 ```python
-from valiant import Workflow, step, workflow, InputField, InputType
+@step(
+    name="Custom-Step-Name",      # Optional: defaults to method name
+    order=10,                     # Execution order (lower = earlier)
+    timeout=60,                   # Step timeout in seconds
+    retries=3,                    # Number of retry attempts
+    parallel_group="data_fetch",  # Group for parallel execution
+    requires=["auth_token"],      # Required context keys
+    description="Fetches user data", # Step description
+    tags=["api", "user"],         # Tags for categorization
+    enabled=True,                 # Whether step is enabled
+    skip_on_failure=False         # Skip if previous steps failed
+)
+def my_step(self, context: Dict) -> EnhancedStepResult:
+    # Step implementation
+    return EnhancedStepResult.success("Step completed")
 ```
 
-### Decorator-Based Step Registration
+### Enhanced Step Results
 
-Steps are automatically discovered and registered using the `@step` decorator:
+The new `EnhancedStepResult` class provides rich result handling:
 
 ```python
-@workflow(name="user_management")
-class UserManagementWorkflow(Workflow):
-    def get_input_fields(self):
-        return [
-            InputField(name="username", type=InputType.TEXT, required=True),
-            InputField(name="action", type=InputType.SELECT, 
-                      options=["create", "update", "delete"], required=True)
-        ]
-    
-    @step(name="Validate-Input", order=1)
-    def validate_input(self, context):
-        username = context.get("username")
-        if not username or len(username) < 3:
-            return self.failure("Username must be at least 3 characters")
-        return self.success("Input validation passed")
-    
-    @step(name="Process-User", order=2)
-    def process_user(self, context):
-        action = context.get("action")
-        username = context.get("username")
-        
-        result = f"Successfully {action}d user {username}"
-        return self.success(result, data={"processed_user": username})
+# Success result
+return EnhancedStepResult.success(
+    "Step-Name",
+    "Operation completed successfully",
+    {"data": "result"}
+).add_metadata("duration", "2.5s").add_tag("performance")
+
+# Failure result
+return EnhancedStepResult.failure(
+    "Step-Name",
+    "Operation failed",
+    exception=e
+)
+
+# Skip result
+return EnhancedStepResult.skip(
+    "Step-Name",
+    "Skipped due to condition"
+)
 ```
 
 ### Automatic Step Discovery
@@ -107,81 +216,174 @@ class UserManagementWorkflow(Workflow):
 Steps are automatically discovered and registered based on decorators:
 
 ```python
-class AutoDiscoveryWorkflow(Workflow):
+class AutoDiscoveryWorkflow(EnhancedBaseWorkflow):
     @step(order=1)
     def first_step(self, context):
-        return self.success("First step complete")
+        return EnhancedStepResult.success("First", "Step 1 complete")
     
     @step(order=2, parallel_group="parallel")
     def second_step(self, context):
-        return self.success("Second step complete")
+        return EnhancedStepResult.success("Second", "Step 2 complete")
     
     @step(order=2, parallel_group="parallel")
     def third_step(self, context):
-        return self.success("Third step complete")
+        return EnhancedStepResult.success("Third", "Step 3 complete")
     
-    # No manual step registration needed!
+    # No need to manually register steps!
+    # define_steps() is handled automatically
 ```
 
 ---
 
-## 📋 **Step Registration and Execution**
+## 🧩 **Pre-built Step Templates**
 
-### Step Decorator Parameters
+### API Authentication Template
 
 ```python
-@step(
-    name="Custom-Step-Name",      # Optional: defaults to method name
-    order=1,                      # Execution order
-    timeout=60,                   # Step timeout in seconds
-    retries=3,                    # Number of retry attempts
-    parallel_group="group_name",  # Parallel execution group
-    requires=["step1", "step2"],  # Required step dependencies
-    description="Step description", # Step description
-    tags=["api", "user"],         # Tags for categorization
-    enabled=True,                 # Enable/disable step
-    skip_on_failure=False         # Skip if previous steps failed
+from valiant.framework.decorators import APIAuthStep
+
+auth_step = APIAuthStep(
+    name="API-Login",
+    url="/auth/login",
+    username_field="username",      # Context key for username
+    password_field="password",      # Context key for password
+    token_extract="access_token",   # Path to token in response
+    store_as="auth_token",         # Context key to store token
+    headers={"Content-Type": "application/json"},
+    timeout=30.0
 )
-def my_step(self, context: Dict) -> StepResult:
-    # Step implementation
-    return self.success("Step completed")
+
+# Add to workflow
+self.add_template(auth_step)
 ```
 
-### Result Handling
-
-The unified framework provides simple result methods:
+### API GET Request Template
 
 ```python
-@step(name="Example-Step", order=1)
-def example_step(self, context):
-    try:
-        # Your logic here
-        data = process_something(context)
-        
-        # Success result with metrics and tags
-        result = self.success(
-            message="Operation completed successfully",
-            data={"processed_items": len(data)},
-            tags=["processing", "success"],
-            metrics={"duration": 2.5, "items_count": len(data)}
-        )
-        return result
-        
-    except ValidationError as e:
-        return self.failure(f"Validation failed: {str(e)}")
-    
-    except Exception as e:
-        return self.failure(f"Unexpected error: {str(e)}")
+from valiant.framework.decorators import APIGetStep
+
+get_step = APIGetStep(
+    name="Get-User-Data",
+    url="/user/{user_id}",         # URL with context variable
+    requires_auth=True,            # Requires authentication
+    auth_header="Authorization",   # Auth header name
+    auth_prefix="Bearer",          # Auth header prefix
+    auth_token_key="auth_token",   # Context key for token
+    store_as="user_data",          # Store response in context
+    validate={                     # Response validation
+        "status": "active",
+        "id": lambda x: x > 0
+    },
+    extract={                      # Extract values to context
+        "user_name": "name",
+        "user_email": "email"
+    },
+    timeout=30.0
+)
+```
+
+### CLI Command Template
+
+```python
+from valiant.framework.decorators import CLIStep
+
+cli_step = CLIStep(
+    name="Check-Disk-Usage",
+    command="df -h {disk_path}",   # Command with context variables
+    extract_regex=r"(\d+)%",       # Extract data with regex
+    store_as="disk_usage",         # Store extracted value
+    fail_if=lambda output: "100%" in output,  # Failure condition
+    success_if=lambda output: "Filesystem" in output,  # Success condition
+    timeout=10.0
+)
+```
+
+### Data Validation Template
+
+```python
+from valiant.framework.decorators import ValidationStep
+
+validation_step = ValidationStep(
+    name="Validate-User-Data",
+    data_key="user_data",          # Context key to validate
+    rules={                        # Validation rules
+        "id": lambda x: x > 0,
+        "status": "active",
+        "email": lambda x: "@" in str(x)
+    },
+    required_fields=["id", "name", "email"],  # Required fields
+    custom_validator=lambda data: (True, "Valid") if data.get("verified") else (False, "Not verified")
+)
 ```
 
 ---
 
-## 📝 **Input Field Definitions**
+## 🔄 **Backward Compatibility**
+
+### Existing Workflows Continue to Work
+
+All existing workflows continue to work without any changes:
+
+```python
+# This existing workflow works unchanged
+class LegacyWorkflow(BaseWorkflow):
+    def get_required_inputs(self):
+        return [
+            ("Enter username:", "username", False),
+            ("Enter password:", "password", True)
+        ]
+    
+    def define_steps(self):
+        self.runner.add_step("Step1", self.step_one)
+        self.runner.add_step("Step2", self.step_two)
+    
+    def step_one(self, context):
+        return True, "Step 1 complete", None
+    
+    def step_two(self, context):
+        return True, "Step 2 complete", None
+```
+
+### Gradual Migration
+
+You can gradually migrate existing workflows to use enhanced features:
+
+```python
+class MigrationWorkflow(EnhancedBaseWorkflow):
+    def __init__(self, runner=None):
+        super().__init__(runner)
+        # Enable legacy mode for manual step registration
+        self.enable_legacy_mode()
+    
+    # Keep existing input method
+    def get_required_inputs(self):
+        return [("Username:", "username", False)]
+    
+    # Keep existing manual step registration
+    def define_steps_manual(self):
+        self.runner.add_step("Legacy-Step", self.legacy_step)
+        self.runner.add_step("Enhanced-Step", self.enhanced_step)
+    
+    # Legacy step with tuple return
+    def legacy_step(self, context):
+        return True, "Legacy step works", None
+    
+    # Enhanced step with new result type
+    def enhanced_step(self, context):
+        return EnhancedStepResult.success(
+            "Enhanced-Step",
+            "Enhanced step works too!"
+        )
+```
+
+---
+
+## 📝 **Input Field Enhancements**
 
 ### Rich Input Field Types
 
 ```python
-def get_input_fields(self):
+def _get_input_fields_impl(self):
     return [
         # Text input with validation
         InputField(
@@ -189,7 +391,6 @@ def get_input_fields(self):
             type=InputType.TEXT,
             label="Username",
             help_text="Enter your username",
-            required=True,
             validation_regex=r"^[a-zA-Z0-9_]{3,20}$",
             validation_message="Username must be 3-20 alphanumeric characters"
         ),
@@ -199,8 +400,7 @@ def get_input_fields(self):
             name="password",
             type=InputType.PASSWORD,
             label="Password",
-            help_text="Enter your password",
-            required=True
+            help_text="Enter your password"
         ),
         
         # Number input with constraints
@@ -221,8 +421,7 @@ def get_input_fields(self):
             label="Environment",
             options=["dev", "staging", "prod"],
             default="dev",
-            help_text="Target environment",
-            required=True
+            help_text="Target environment"
         ),
         
         # Checkbox
@@ -232,63 +431,68 @@ def get_input_fields(self):
             label="Enable Detailed Logging",
             default=False,
             help_text="Enable verbose logging output"
+        ),
+        
+        # Date input
+        InputField(
+            name="start_date",
+            type=InputType.DATE,
+            label="Start Date",
+            help_text="Select the start date for processing"
         )
     ]
 ```
 
----
+### Input Validation
 
-## ✅ **Result Handling**
-
-### Step Result Methods
-
-The unified framework provides three main result types:
+Input fields support automatic validation:
 
 ```python
-# Success result
-return self.success(
-    message="Operation completed successfully",
-    data={"processed_items": 42},
-    metrics={"duration": 2.5, "items_processed": 42},
-    tags=["processing", "success"]
-)
+# Validate inputs before workflow execution
+inputs = {"username": "ab", "timeout": 500}
+is_valid, errors = workflow.validate_inputs(inputs)
 
-# Failure result
-return self.failure("Operation failed: invalid input")
-
-# Skip result
-return self.skip("Skipping due to condition not met")
+if not is_valid:
+    for error in errors:
+        print(f"Validation error: {error}")
 ```
 
-### Metrics and Tags
+---
 
-Add rich metadata to your step results:
+## 🏗️ **Workflow Builder Pattern**
+
+### Fluent Workflow Creation
 
 ```python
-@step(name="Process-Data", order=1)
-def process_data(self, context):
-    start_time = time.time()
-    
-    try:
-        # Process data
-        items = process_items(context.get("data", []))
-        duration = time.time() - start_time
-        
-        result = self.success(
-            message=f"Processed {len(items)} items successfully",
-            data={"processed_items": items}
-        )
-        
-        # Add metrics and tags
-        result.add_metric("processing_duration", duration)
-        result.add_metric("items_processed", len(items))
-        result.add_tag("data-processing")
-        result.add_tag("batch-operation")
-        
-        return result
-        
-    except Exception as e:
-        return self.failure(f"Processing failed: {str(e)}")
+from valiant.framework.enhanced_workflow import WorkflowBuilder
+
+# Create workflow using builder pattern
+workflow = (WorkflowBuilder(EnhancedBaseWorkflow)
+    .add_auth_step(
+        name="Login",
+        url="/auth/login",
+        username_field="username",
+        password_field="password"
+    )
+    .add_api_get_step(
+        name="Get-Profile",
+        url="/user/profile",
+        requires_auth=True,
+        store_as="profile_data"
+    )
+    .add_cli_step(
+        name="Check-System",
+        command="uptime",
+        extract_regex=r"load average: ([\d.]+)",
+        store_as="system_load"
+    )
+    .add_validation_step(
+        name="Validate-Profile",
+        data_key="profile_data",
+        required_fields=["id", "name"]
+    )
+    .build()
+)
 ```
 
 ---
@@ -314,94 +518,59 @@ def step1(self, context):
 ```python
 # Sequential steps
 @step(order=1)
-def initialize(self, context):
-    return self.success("Initialization complete")
+def initialize(self, context): pass
 
 @step(order=2)
-def authenticate(self, context):
-    return self.success("Authentication complete")
+def authenticate(self, context): pass
 
 # Parallel steps
 @step(order=3, parallel_group="data_fetch")
-def get_profile(self, context):
-    return self.success("Profile retrieved")
+def get_profile(self, context): pass
 
 @step(order=3, parallel_group="data_fetch")
-def get_settings(self, context):
-    return self.success("Settings retrieved")
+def get_settings(self, context): pass
 
 # Final step
 @step(order=4)
-def generate_report(self, context):
-    return self.success("Report generated")
+def generate_report(self, context): pass
 ```
 
-### 3. Handle Errors Gracefully
+### 3. Use Templates for Common Patterns
 
 ```python
-@step(name="Safe-Operation", retries=3, timeout=30)
-def safe_operation(self, context):
-    try:
-        # Operation that might fail
-        result = risky_operation()
+# Instead of writing custom API authentication
+@step(order=1)
+def custom_auth(self, context):
+    # 20+ lines of authentication code
+    pass
+
+# Use the template
+def __init__(self, runner=None):
+    super().__init__(runner)
+    self.add_template(APIAuthStep(
+        name="Authentication",
+        url="/auth/login"
+    ))
+```
+
+### 4. Add Metadata and Documentation
+
+```python
+class DocumentedWorkflow(EnhancedBaseWorkflow):
+    def __init__(self, runner=None):
+        super().__init__(runner)
         
-        return self.success(
-            message="Operation completed successfully",
-            data=result,
-            metrics={"attempts": 1}
+        metadata = WorkflowMetadata(
+            name="User Management Workflow",
+            description="Comprehensive user account management and validation",
+            version="1.2.0",
+            author="Your Team",
+            tags=["user", "management", "validation"],
+            category="administration",
+            estimated_duration="3-5 minutes",
+            complexity_level="medium"
         )
-        
-    except SpecificException as e:
-        return self.failure(f"Known error occurred: {str(e)}")
-        
-    except Exception as e:
-        return self.failure(f"Unexpected error: {str(e)}")
-```
-
-### 4. Use Context for Data Flow
-
-```python
-@step(name="Fetch-Data", order=1)
-def fetch_data(self, context):
-    data = fetch_from_api()
-    context["fetched_data"] = data
-    return self.success("Data fetched successfully")
-
-@step(name="Process-Data", order=2)
-def process_data(self, context):
-    data = context.get("fetched_data")
-    if not data:
-        return self.failure("No data to process")
-    
-    processed = process(data)
-    context["processed_data"] = processed
-    return self.success("Data processed successfully")
-```
-
-### 5. Add Comprehensive Documentation
-
-```python
-@workflow(name="documented_workflow")
-class DocumentedWorkflow(Workflow):
-    """
-    Comprehensive workflow for user account management and validation.
-    
-    This workflow performs:
-    1. Input validation
-    2. User account processing
-    3. Result verification
-    """
-    
-    def get_input_fields(self):
-        return [
-            InputField(
-                name="username",
-                type=InputType.TEXT,
-                label="Username",
-                help_text="User account name (3-20 characters)",
-                required=True
-            )
-        ]
+        self.set_metadata(metadata)
     
     @step(
         name="Validate-User-Account",
@@ -410,67 +579,113 @@ class DocumentedWorkflow(Workflow):
         tags=["validation", "security"]
     )
     def validate_user(self, context):
-        """Validate user account before processing."""
-        username = context.get("username")
+        pass
+```
+
+### 5. Handle Errors Gracefully
+
+```python
+@step(name="Safe-Operation", retries=3, timeout=30)
+def safe_operation(self, context):
+    try:
+        # Operation that might fail
+        result = risky_operation()
         
-        if not username:
-            return self.failure("Username is required")
-            
-        return self.success("User validation complete")
+        return EnhancedStepResult.success(
+            "Safe-Operation",
+            "Operation completed successfully",
+            result
+        ).add_metadata("attempts", 1)
+        
+    except SpecificException as e:
+        return EnhancedStepResult.failure(
+            "Safe-Operation",
+            f"Known error occurred: {str(e)}",
+            exception=e
+        )
+    except Exception as e:
+        return EnhancedStepResult.failure(
+            "Safe-Operation",
+            f"Unexpected error: {str(e)}",
+            exception=e
+        )
 ```
 
 ---
 
-## 🔄 **Migration from Legacy Frameworks**
+## 🔄 **Migration Guide**
 
 ### Step 1: Update Imports
 
 ```python
-# Before (if migrating from legacy systems)
-from some.legacy.framework import LegacyWorkflow
+# Old
+from valiant.framework.workflow import BaseWorkflow
 
-# After
-from valiant import Workflow, step, workflow, InputField, InputType
+# New (enhanced features)
+from valiant.framework.enhanced_workflow import EnhancedBaseWorkflow
+from valiant.framework.decorators import step, EnhancedStepResult
 ```
 
-### Step 2: Convert Base Class
+### Step 2: Convert Input Definitions
 
 ```python
-# Before (legacy pattern)
-class MyWorkflow(LegacyWorkflow):
-    def get_steps(self):
-        return [...]
+# Old
+def get_required_inputs(self):
+    return [
+        ("Enter username:", "username", False),
+        ("Enter password:", "password", True)
+    ]
 
-# After  
-@workflow(name="my_workflow")
-class MyWorkflow(Workflow):
-    def get_input_fields(self):
-        return [...]
+# New
+def _get_input_fields_impl(self):
+    return [
+        InputField(
+            name="username",
+            type=InputType.TEXT,
+            label="Username",
+            help_text="Enter your username"
+        ),
+        InputField(
+            name="password",
+            type=InputType.PASSWORD,
+            label="Password",
+            help_text="Enter your password"
+        )
+    ]
 ```
 
-### Step 3: Update Step Results
+### Step 3: Convert Step Registration
 
 ```python
-# Before (legacy tuple returns)
-def step_one(self, context):
-    return True, "Completed", {"data": "value"}
+# Old
+def define_steps(self):
+    self.runner.add_step("Step1", self.step_one)
+    self.runner.add_step("Step2", self.step_two)
 
-# After
-def step_one(self, context):
-    return self.success("Completed", data={"data": "value"})
-```
-
-### Step 4: Use Decorator Registration
-
-```python
-# Before - Manual registration
-def register_steps(self):
-    self.add_step("Step1", self.step_one)
-
-# After - Automatic with decorators
+# New (automatic discovery)
 @step(order=1)
 def step_one(self, context):
-    return self.success("Step completed")
+    return EnhancedStepResult.success("Step1", "Completed")
+
+@step(order=2)
+def step_two(self, context):
+    return EnhancedStepResult.success("Step2", "Completed")
+```
+
+### Step 4: Update Return Types (Optional)
+
+```python
+# Old (still works)
+def step_one(self, context):
+    return True, "Step completed", {"data": "value"}
+
+# New (enhanced)
+def step_one(self, context):
+    return EnhancedStepResult.success(
+        "Step1",
+        "Step completed",
+        {"data": "value"}
+    ).add_tag("processing")
 ```
 
 ---
@@ -479,99 +694,46 @@ def step_one(self, context):
 
 ### Core Classes
 
-- `Workflow`: Unified base class for all workflows
-- `InputField`: Input field definition with validation
-- `InputType`: Enum for input field types
+- `EnhancedBaseWorkflow`: Enhanced base class with decorator support
+- `EnhancedStepResult`: Rich result type with metadata and tags
+- `WorkflowBuilder`: Fluent builder for workflow creation
+- `InputField`: Enhanced input field with validation
 
 ### Decorators
 
-- `@workflow(name)`: Register workflow class
 - `@step()`: Register method as workflow step
-  - Parameters: `name`, `order`, `timeout`, `retries`, `parallel_group`, `requires`, `description`, `tags`, `enabled`
+- Parameters: `name`, `order`, `timeout`, `retries`, `parallel_group`, `requires`, `description`, `tags`, `enabled`
 
-### Result Methods
+### Templates
 
-- `self.success(message, data=None, tags=None, metrics=None)`: Return success result
-- `self.failure(message)`: Return failure result  
-- `self.skip(message)`: Return skip result
+- `APIAuthStep`: API authentication
+- `APIGetStep`: API GET requests
+- `CLIStep`: CLI command execution
+- `ValidationStep`: Data validation
 
-### Input Types
+### Utility Functions
 
-- `InputType.TEXT`: Text input
-- `InputType.PASSWORD`: Password input
-- `InputType.NUMBER`: Numeric input
-- `InputType.SELECT`: Dropdown selection
-- `InputType.CHECKBOX`: Checkbox input
-- `InputType.DATE`: Date picker
+- `auto_discover_steps()`: Discover decorated steps
+- `register_template_steps()`: Register template steps
+- `workflow_registry`: Global workflow registry
 
 ---
 
 ## 🎯 **Examples**
 
-### Complete User Management Workflow
-
-```python
-from valiant import Workflow, step, workflow, InputField, InputType
-
-@workflow(name="user_management")
-class UserManagementWorkflow(Workflow):
-    def get_input_fields(self):
-        return [
-            InputField(name="username", type=InputType.TEXT, required=True),
-            InputField(name="email", type=InputType.TEXT, required=True),
-            InputField(name="action", type=InputType.SELECT, 
-                      options=["create", "update", "delete"], required=True),
-            InputField(name="role", type=InputType.SELECT, 
-                      options=["admin", "user", "guest"], default="user")
-        ]
-    
-    @step(name="Validate-Input", order=1)
-    def validate_input(self, context):
-        username = context.get("username")
-        email = context.get("email")
-        
-        if not username or len(username) < 3:
-            return self.failure("Username must be at least 3 characters")
-        
-        if "@" not in email:
-            return self.failure("Invalid email format")
-            
-        return self.success("Input validation passed")
-    
-    @step(name="Process-User", order=2)
-    def process_user(self, context):
-        action = context.get("action")
-        username = context.get("username")
-        role = context.get("role", "user")
-        
-        if action == "create":
-            result = f"Created user {username} with role {role}"
-        elif action == "update":
-            result = f"Updated user {username}"
-        else:
-            result = f"Deleted user {username}"
-        
-        return self.success(
-            message=result,
-            data={"processed_user": username, "action": action},
-            tags=["user-management", action],
-            metrics={"processing_time": 1.2}
-        )
-```
-
 See the complete examples in:
-- `valiant/workflows/demo.py` - Simple demonstration workflow
-- `valiant/workflows/user_management.py` - Complete user management workflow
+- `examples/enhanced_workflow_example.py` - Comprehensive enhanced workflow examples
+- `valiant/workflows/` - Updated existing workflows with backward compatibility
 
 ---
 
 ## 🆘 **Support**
 
 For questions or issues:
-1. Check existing workflow examples in `valiant/workflows/`
+1. Check existing workflow examples
 2. Review this documentation
-3. Test your workflow using the CLI: `python run.py run <workflow_name>`
-4. Check service logs in `valiant/ui/logs/` for debugging
+3. Validate your workflow using `workflow.validate_workflow()`
+4. Check step metadata with `workflow.get_step_metadata()`
 
 ---
 

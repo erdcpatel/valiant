@@ -3,8 +3,11 @@ import importlib
 import asyncio
 import sys
 import getpass
+import os
 from typing import List, Optional, Tuple, Dict, Any
 from rich.console import Console
+from rich.table import Table
+from rich.prompt import Prompt, Confirm
 from valiant.framework.engine import WorkflowRunner, print_summary, StepResult
 from valiant.framework.workflow import BaseWorkflow
 from valiant.framework.registry import get_available_workflows, get_workflow_class_path
@@ -153,11 +156,91 @@ def run(
 
 
 @app.command()
+def create(
+        template_name: Optional[str] = typer.Argument(None, help="Template name (api_db_integration)"),
+        output_dir: str = typer.Option("./", "--output", "-o", help="Output directory for generated files"),
+        interactive: bool = typer.Option(True, "--interactive/--non-interactive", help="Interactive mode")
+):
+    """Create a new workflow from a template"""
+    from valiant.templates import TemplateEngine
+    
+    engine = TemplateEngine()
+    available_templates = engine.list_templates()
+    
+    if not available_templates:
+        console.print("[red]No templates available[/]")
+        raise typer.Exit(1)
+    
+    # Show available templates if none specified
+    if not template_name:
+        console.print("[bold]Available Templates:[/]")
+        table = Table(title="Workflow Templates")
+        table.add_column("Name", style="cyan")
+        table.add_column("Description", style="white")
+        table.add_column("Category", style="dim")
+        
+        for template in available_templates:
+            table.add_row(template.name, template.description, template.category)
+        
+        console.print(table)
+        
+        if interactive:
+            template_name = Prompt.ask("\nWhich template would you like to use?", 
+                                     choices=[t.name for t in available_templates])
+        else:
+            console.print(f"\n[yellow]Please specify a template name. Available: {[t.name for t in available_templates]}[/]")
+            raise typer.Exit(1)
+    
+    # Validate template exists
+    if template_name not in [t.name for t in available_templates]:
+        console.print(f"[red]Template '{template_name}' not found[/]")
+        console.print(f"[yellow]Available: {[t.name for t in available_templates]}[/]")
+        raise typer.Exit(1)
+    
+    # Create output directory if it doesn't exist
+    output_path = os.path.abspath(output_dir)
+    os.makedirs(output_path, exist_ok=True)
+    
+    try:
+        # Generate workflow
+        console.print(f"\n[bold green]Creating workflow from template: {template_name}[/]")
+        
+        if interactive:
+            console.print("[dim]Answer the following questions to configure your workflow:[/]")
+        
+        generated_files = engine.generate_workflow(template_name, output_path, interactive=interactive)
+        
+        # Display results
+        console.print(f"\n[bold green]✓ Successfully generated {len(generated_files)} files:[/]")
+        
+        for file in generated_files:
+            file_path = os.path.join(output_path, file.path)
+            console.print(f"  [cyan]{file.file_type.upper()}[/]: {file_path}")
+        
+        # Show next steps
+        console.print(f"\n[bold]Next Steps:[/]")
+        console.print("1. Review the generated files")
+        console.print("2. Customize the workflow logic as needed")
+        console.print("3. Test the workflow:")
+        
+        workflow_files = [f for f in generated_files if f.file_type == "workflow"]
+        if workflow_files:
+            workflow_file = workflow_files[0]
+            workflow_name = workflow_file.path.replace('.py', '')
+            console.print(f"   [dim]python run.py run {workflow_name}[/]")
+        
+        console.print("4. Register in valiant/workflows/config.py if needed")
+        
+    except Exception as e:
+        console.print(f"[red]Error generating workflow: {e}[/]")
+        raise typer.Exit(1)
+
+
+@app.command()
 def list(
         output_format: str = typer.Option("rich", "--output", help="Output format: rich or json")
 ):
     """List all available workflows"""
-    from rich.table import Table
     workflows = get_available_workflows()
 
     if output_format == "json":
