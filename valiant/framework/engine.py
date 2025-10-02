@@ -19,6 +19,7 @@ load_dotenv()
 
 
 class StepResult:
+    """Legacy StepResult class - maintained for backward compatibility"""
     def __init__(self, name: str):
         self.name = name
         self.success: bool = False
@@ -33,6 +34,15 @@ class StepResult:
         self.derived_metrics: Dict[str, Any] = {}  # Runtime metrics
         self.tags: List[str] = []  # Tags
         self.metadata: Dict[str, Any] = {}  # Legacy metadata - keep for compatibility
+
+    def add_metric(self, key: str, value: Any):
+        """Add a metric to the result"""
+        self.derived_metrics[key] = value
+
+    def add_tag(self, tag: str):
+        """Add a tag to the result"""
+        if tag not in self.tags:
+            self.tags.append(tag)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert step result to dictionary format"""
@@ -156,13 +166,22 @@ class WorkflowRunner:
                     )
 
                 # Handle different types of step results for backward compatibility
-                if hasattr(step_result_obj, 'to_dict'): # EnhancedStepResult
-                    enhanced_data = step_result_obj.to_dict()
-                    result.success = enhanced_data['success']
-                    result.message = enhanced_data['message']
-                    result.data = enhanced_data.get('data')
-                    result.derived_metrics = enhanced_data.get('derived_metrics', {})
-                    result.tags = enhanced_data.get('tags', [])
+                if hasattr(step_result_obj, 'to_dict'): # New unified StepResult or EnhancedStepResult
+                    if hasattr(step_result_obj, 'name'):  # New unified StepResult
+                        result.success = step_result_obj.success
+                        result.message = step_result_obj.message
+                        result.data = step_result_obj.data
+                        result.skipped = step_result_obj.skipped
+                        result.derived_metrics = getattr(step_result_obj, 'metrics', {})
+                        result.tags = getattr(step_result_obj, 'tags', [])
+                        result.metadata = getattr(step_result_obj, 'metadata', {})
+                    else:  # Legacy EnhancedStepResult
+                        enhanced_data = step_result_obj.to_dict()
+                        result.success = enhanced_data['success']
+                        result.message = enhanced_data['message']
+                        result.data = enhanced_data.get('data')
+                        result.derived_metrics = enhanced_data.get('derived_metrics', {})
+                        result.tags = enhanced_data.get('tags', [])
                     
                     # Debug print
                     print(f"[DEBUG] Step {result.name} metrics: {result.derived_metrics}")

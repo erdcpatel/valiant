@@ -1,10 +1,21 @@
 """
-Workflow configuration - simple mapping of workflow names to class paths
+Workflow configuration - simplified mapping using new unified framework
 """
+
+# Simplified workflow registration using the new unified system
 WORKFLOWS = {
-    "api": "valiant.workflows.api_validation.workflow.APIValidationWorkflow",
-    "system": "valiant.workflows.system_health.workflow.SystemHealthWorkflow",
-    "user": "valiant.workflows.user_validation.workflow.UserValidationWorkflow",
-    "enhanced_demo": "valiant.workflows.enhanced_demo.workflow.EnhancedDemoWorkflow",
-    "test_basic": "valiant.workflows.test_basic.workflow.BasicDemoWorkflow"
+    "demo": "valiant.workflows.demo.DemoWorkflow",
+    "user_management": "valiant.workflows.user_management.UserManagementWorkflow",
 }
+
+# Auto-discovery function for workflows using @workflow decorator
+def discover_workflows():
+    """Discover workflows registered with @workflow decorator"""
+    from valiant import get_registered_workflows
+    return get_registered_workflows()
+
+def get_all_workflows():
+    """Get all workflows from both config and auto-discovery"""
+    workflows = WORKFLOWS.copy()
+    workflows.update(discover_workflows())
+    return workflows
