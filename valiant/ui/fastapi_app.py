@@ -130,14 +130,11 @@ async def run_workflow(workflow_name: str, config: Optional[Dict[str, Any]] = No
         retries = config.get('retries', 1)
         context_overrides = config.get('context', {})
 
-        # Use provided context or defaults
+        # If no nested context, treat the entire config as context (simplified API)
         if not context_overrides:
-            context_overrides = {
-                'demo_text': 'Hello Enhanced Framework!',
-                'demo_number': 42,
-                'demo_select': 'option1',
-                'enable_advanced': False
-            }
+            # Remove known configuration keys and treat the rest as context
+            context_overrides = {k: v for k, v in config.items() 
+                               if k not in ['environment', 'timeout', 'retries', 'context']}
 
         # Validate parameters
         if not isinstance(timeout, (int, float)) or timeout <= 0:
