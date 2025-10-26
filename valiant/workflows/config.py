@@ -6,6 +6,7 @@ Workflow configuration - simplified mapping using new unified framework
 WORKFLOWS = {
     "demo": "valiant.workflows.demo.DemoWorkflow",
     "user_management": "valiant.workflows.user_management.UserManagementWorkflow",
+    "investigate": "valiant.workflows.investigate.InvestigateWorkflow",
 }
 
 # Auto-discovery function for workflows using @workflow decorator
