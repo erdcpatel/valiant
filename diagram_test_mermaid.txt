@@ -1,0 +1,42 @@
+graph TD
+    Start([Start: Diagram Test Workflow])
+    Initialize_Workflow["Initialize-Workflow"]
+    Start --> Initialize_Workflow
+    subgraph parallel_data_fetch [⚡ Parallel: data_fetch]
+        direction TB
+        Fetch_Orders["Fetch-Orders"]
+        Fetch_Products["Fetch-Products"]
+        Fetch_Users["Fetch-Users"]
+    end
+    Initialize_Workflow --> Fetch_Orders
+    Initialize_Workflow --> Fetch_Products
+    Initialize_Workflow --> Fetch_Users
+    Validate_Data["Validate-Data"]
+    Fetch_Orders --> Validate_Data
+    Fetch_Products --> Validate_Data
+    Fetch_Users --> Validate_Data
+    Optional_Processing{{Optional-Processing<br/><small>[if: enable_optional]</small>}}
+    Validate_Data --> Optional_Processing
+    subgraph parallel_transform [⚡ Parallel: transform]
+        direction TB
+        Transform_Products["Transform-Products"]
+        Transform_Users["Transform-Users"]
+    end
+    Optional_Processing --> Transform_Products
+    Optional_Processing --> Transform_Users
+    Advanced_Analytics{{Advanced-Analytics<br/><small>[if: enable_advanced]</small>}}
+    Transform_Products --> Advanced_Analytics
+    Transform_Users --> Advanced_Analytics
+    Generate_Report["Generate-Report"]
+    Advanced_Analytics --> Generate_Report
+    End([End: Diagram Test Workflow])
+    Generate_Report --> End
+
+    %% Styling
+    classDef startEnd fill:#e1f5fe,stroke:#01579b,stroke-width:3px;
+    classDef normalStep fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px;
+    classDef conditionalStep fill:#fff9c4,stroke:#f57f17,stroke-width:2px;
+    classDef parallelGroup fill:#f3e5f5,stroke:#4a148c,stroke-width:2px;
+    
+    class Start,End startEnd;
+    class Optional_Processing,Advanced_Analytics conditionalStep;

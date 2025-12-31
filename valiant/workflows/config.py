@@ -7,6 +7,7 @@ WORKFLOWS = {
     "demo": "valiant.workflows.demo.DemoWorkflow",
     "user_management": "valiant.workflows.user_management.UserManagementWorkflow",
     "investigate": "valiant.workflows.investigate.InvestigateWorkflow",
+    "diagram_test": "valiant.workflows.diagram_test.DiagramTestWorkflow",
 }
 
 # Auto-discovery function for workflows using @workflow decorator

@@ -140,6 +140,30 @@ python run.py list --output json
 
 ---
 
+### 📷 `diagram` - Visualize Workflows
+
+Generate Mermaid.js diagrams for your workflows to visualize structure and dependencies.
+
+```bash
+python run.py diagram WORKFLOW_NAME [OPTIONS]
+```
+
+**Options:**
+- `WORKFLOW_NAME` - Name of workflow to visualize (required)
+- `--output, -o FILE` - Save diagram to file (e.g. `flow.mmd`)
+- `--help` - Show command help
+
+**Examples:**
+```bash
+# Print diagram code to console
+python run.py diagram demo
+
+# Save to file
+python run.py diagram demo --output demo.mmd
+```
+
+---
+
 ## Global Options
 
 **Completion Support:**

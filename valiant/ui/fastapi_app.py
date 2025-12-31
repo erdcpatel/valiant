@@ -118,6 +118,22 @@ async def get_workflow_schema(workflow_name: str):
         raise HTTPException(status_code=500, detail=f"Failed to get workflow schema: {str(e)}")
 
 
+@app.get("/workflows/{workflow_name}/diagram")
+async def get_workflow_diagram(workflow_name: str):
+    """Get Mermaid.js diagram code for a workflow"""
+    try:
+        diagram_code = ValiantAPI.get_workflow_diagram(workflow_name)
+        return {
+            "success": True,
+            "data": diagram_code,
+            "workflow": workflow_name
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get workflow diagram: {str(e)}")
+
+
 @app.post("/run/{workflow_name}")
 async def run_workflow(workflow_name: str, config: Optional[Dict[str, Any]] = None):
     """Execute a workflow with provided configuration"""

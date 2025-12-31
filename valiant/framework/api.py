@@ -142,3 +142,31 @@ class ValiantAPI:
 
         except Exception as e:
             raise ValueError(f"Failed to get input schema: {str(e)}")
+
+    @staticmethod
+    def get_workflow_diagram(workflow_name: str) -> str:
+        """Get Mermaid.js diagram for a workflow"""
+        try:
+            workflows = ValiantAPI.list_workflows()
+            if workflow_name not in workflows:
+                raise ValueError(f"Workflow not found: {workflow_name}")
+
+            workflow_path = workflows[workflow_name]
+            module_name, class_name = workflow_path.rsplit('.', 1)
+
+            # Import workflow class
+            module = __import__(module_name, fromlist=[class_name])
+            workflow_class = getattr(module, class_name)
+
+            # Create temporary instance to generate diagram
+            # We pass None as runner since we only need static structure
+            workflow_instance = workflow_class(None)
+            
+            # Check if it supports visualization (unified workflow)
+            if hasattr(workflow_instance, 'to_mermaid'):
+                return workflow_instance.to_mermaid()
+            else:
+                return "graph TD;\nError[Workflow does not support visualization]"
+
+        except Exception as e:
+            raise ValueError(f"Failed to generate diagram: {str(e)}")

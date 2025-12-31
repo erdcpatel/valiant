@@ -416,6 +416,151 @@ class Workflow:
         
         return self.runner.results
 
+    def to_mermaid(self) -> str:
+        """
+        Generate a Mermaid.js diagram for this workflow with proper parallel execution visualization.
+        
+        Returns:
+            str: Mermaid graph syntax representing the workflow structure
+        """
+        try:
+            # Ensure steps are discovered
+            steps_with_config = self._discover_steps()
+        except Exception:
+            return "graph TD\n    Error[Error Discovering Steps]"
+
+        if not steps_with_config:
+            return "graph TD\n    Start --> End"
+
+        mermaid_lines = ["graph TD"]
+        mermaid_lines.append(f"    Start([Start: {self.name}])")
+        
+        # Group steps by execution order
+        order_groups = {}
+        for config, _ in steps_with_config:
+            if config.order not in order_groups:
+                order_groups[config.order] = []
+            order_groups[config.order].append(config)
+        
+        # Sort orders
+        sorted_orders = sorted(order_groups.keys())
+        
+        # Track previous order's node IDs for linking
+        previous_order_nodes = ["Start"]
+        
+        # Generate nodes and links for each order level
+        for order_idx, order in enumerate(sorted_orders):
+            configs = order_groups[order]
+            current_order_nodes = []
+            
+            # Group by parallel_group at this order level
+            parallel_groups = {}
+            standalone_steps = []
+            
+            for config in configs:
+                if config.parallel_group:
+                    if config.parallel_group not in parallel_groups:
+                        parallel_groups[config.parallel_group] = []
+                    parallel_groups[config.parallel_group].append(config)
+                else:
+                    standalone_steps.append(config)
+            
+            # Render standalone steps first
+            for config in standalone_steps:
+                node_id = self._sanitize_node_id(config.name)
+                node_label = config.name
+                
+                # Add styling based on step properties
+                if config.condition:
+                    # Diamond for conditional steps
+                    mermaid_lines.append(f'    {node_id}{{{{{node_label}}}}}')
+                elif not config.enabled:
+                    # Dashed border for disabled steps
+                    mermaid_lines.append(f'    {node_id}["{node_label} [disabled]"]')
+                    mermaid_lines.append(f'    style {node_id} stroke-dasharray: 5 5')
+                else:
+                    # Regular rectangle
+                    mermaid_lines.append(f'    {node_id}["{node_label}"]')
+                
+                # Link from all previous order nodes
+                for prev_node in previous_order_nodes:
+                    mermaid_lines.append(f"    {prev_node} --> {node_id}")
+                
+                current_order_nodes.append(node_id)
+            
+            # Render parallel groups as subgraphs
+            for group_name, group_configs in parallel_groups.items():
+                # Create subgraph
+                subgraph_id = self._sanitize_node_id(f"parallel_{group_name}")
+                mermaid_lines.append(f"    subgraph {subgraph_id} [⚡ Parallel: {group_name}]")
+                mermaid_lines.append("        direction TB")
+                
+                group_node_ids = []
+                for config in group_configs:
+                    node_id = self._sanitize_node_id(config.name)
+                    node_label = config.name
+                    
+                    if config.condition:
+                        # Diamond for conditional steps
+                        mermaid_lines.append(f'        {node_id}{{{{{node_label}}}}}')
+                    elif not config.enabled:
+                        mermaid_lines.append(f'        {node_id}["{node_label} [disabled]"]')
+                        mermaid_lines.append(f'        style {node_id} stroke-dasharray: 5 5')
+                    else:
+                        mermaid_lines.append(f'        {node_id}["{node_label}"]')
+                    
+                    group_node_ids.append(node_id)
+                
+                mermaid_lines.append("    end")
+                
+                # Link all previous nodes to ALL parallel group nodes (showing parallel execution)
+                for prev_node in previous_order_nodes:
+                    for group_node in group_node_ids:
+                        mermaid_lines.append(f"    {prev_node} --> {group_node}")
+                
+                # Add all group nodes to current order tracking
+                current_order_nodes.extend(group_node_ids)
+            
+            # Update previous order nodes for next iteration
+            previous_order_nodes = current_order_nodes if current_order_nodes else previous_order_nodes
+        
+        # Add End node
+        mermaid_lines.append(f"    End([End: {self.name}])")
+        for node in previous_order_nodes:
+            if node != "Start":  # Avoid linking Start directly to End
+                mermaid_lines.append(f"    {node} --> End")
+        
+        # Add styling
+        mermaid_lines.append("")
+        mermaid_lines.append("    %% Styling")
+        mermaid_lines.append("    classDef startEnd fill:#e1f5fe,stroke:#01579b,stroke-width:3px;")
+        mermaid_lines.append("    classDef normalStep fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px;")
+        mermaid_lines.append("    classDef conditionalStep fill:#fff9c4,stroke:#f57f17,stroke-width:2px;")
+        mermaid_lines.append("    classDef parallelGroup fill:#f3e5f5,stroke:#4a148c,stroke-width:2px;")
+        mermaid_lines.append("    ")
+        mermaid_lines.append("    class Start,End startEnd;")
+        
+        # Apply conditional styling to relevant nodes
+        conditional_nodes = []
+        for config, _ in steps_with_config:
+            if config.condition:
+                conditional_nodes.append(self._sanitize_node_id(config.name))
+        
+        if conditional_nodes:
+            mermaid_lines.append(f"    class {','.join(conditional_nodes)} conditionalStep;")
+        
+        return "\n".join(mermaid_lines)
+    
+    def _sanitize_node_id(self, name: str) -> str:
+        """Sanitize step name to be a valid Mermaid node ID"""
+        # Remove special characters and replace spaces/dashes with underscores
+        sanitized = re.sub(r'[^a-zA-Z0-9_]', '_', name)
+        # Ensure it doesn't start with a number
+        if sanitized and sanitized[0].isdigit():
+            sanitized = f"step_{sanitized}"
+        return sanitized or "unnamed_step"
+
+
 
 # Registry for auto-discovery
 _workflow_registry = {}

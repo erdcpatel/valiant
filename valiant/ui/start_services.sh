@@ -18,6 +18,25 @@ echo "Project Root: $PROJECT_ROOT"
 # Export PYTHONPATH to include the project root so valiant module can be found
 export PYTHONPATH="$PROJECT_ROOT:$PYTHONPATH"
 
+# If a virtualenv exists at the project root, activate it so `streamlit`/`uvicorn`
+# are available on PATH. This keeps behavior consistent across developer machines.
+if [ -d "$PROJECT_ROOT/.venv" ] && [ -f "$PROJECT_ROOT/.venv/bin/activate" ]; then
+    echo -e "${BLUE}Activating virtualenv: $PROJECT_ROOT/.venv${NC}"
+    # shellcheck disable=SC1091
+    source "$PROJECT_ROOT/.venv/bin/activate"
+    export PATH="$PROJECT_ROOT/.venv/bin:$PATH"
+fi
+
+# Pick a python executable (prefer python3)
+if command -v python3 >/dev/null 2>&1; then
+    PYTHON=python3
+elif command -v python >/dev/null 2>&1; then
+    PYTHON=python
+else
+    echo -e "${RED}No python executable found in PATH. Please install Python or activate a virtualenv.${NC}"
+    exit 1
+fi
+
 # Create directories if they don't exist
 mkdir -p "$LOG_DIR"
 mkdir -p "$PID_DIR"
@@ -216,16 +235,33 @@ case "${1:-start}" in
         echo -e "${BLUE}Project Root: $PROJECT_ROOT${NC}"
         echo -e "${BLUE}Python Path: $PYTHONPATH${NC}"
 
-        # Start FastAPI
-        start_service "fastapi" "uvicorn valiant.ui.fastapi_app:app --host 0.0.0.0 --port 8000"
+        # Quick package availability checks (advise but don't fail)
+        if ! $PYTHON -c 'import uvicorn' >/dev/null 2>&1; then
+            echo -e "${YELLOW}Warning: 'uvicorn' not found in Python environment. Install with: $PYTHON -m pip install uvicorn${NC}"
+        fi
+        if ! $PYTHON -c 'import streamlit' >/dev/null 2>&1; then
+            echo -e "${YELLOW}Warning: 'streamlit' not found in Python environment. Install with: $PYTHON -m pip install streamlit${NC}"
+        fi
 
-        # Start Streamlit
-        start_service "streamlit" "streamlit run valiant/ui/streamlit_app.py --server.port 8501 --server.address 0.0.0.0"
+        # Start FastAPI using the active Python interpreter
+        start_service "fastapi" "$PYTHON -m uvicorn valiant.ui.fastapi_app:app --host 0.0.0.0 --port 8000"
+        ret_fastapi=$?
 
-        echo -e "${GREEN}Services started!${NC}"
-        echo -e "${GREEN}FastAPI:  http://localhost:8000${NC}"
-        echo -e "${GREEN}Streamlit: http://localhost:8501${NC}"
-        echo -e "${GREEN}Logs: $LOG_DIR/${NC}"
+        # Start Streamlit using the active Python interpreter and explicit script path
+        start_service "streamlit" "$PYTHON -m streamlit run \"$PROJECT_ROOT/valiant/ui/streamlit_app.py\" --server.port 8501 --server.address 0.0.0.0"
+        ret_streamlit=$?
+
+        if [ "$ret_fastapi" -eq 0 ] && [ "$ret_streamlit" -eq 0 ]; then
+            echo -e "${GREEN}Services started!${NC}"
+            echo -e "${GREEN}FastAPI:  http://localhost:8000${NC}"
+            echo -e "${GREEN}Streamlit: http://localhost:8501${NC}"
+            echo -e "${GREEN}Logs: $LOG_DIR/${NC}"
+        else
+            echo -e "${RED}One or more services failed to start.${NC}"
+            [ "$ret_fastapi" -ne 0 ] && echo -e "${RED} - FastAPI failed (see $LOG_DIR/fastapi.log)${NC}"
+            [ "$ret_streamlit" -ne 0 ] && echo -e "${RED} - Streamlit failed (see $LOG_DIR/streamlit.log)${NC}"
+            exit 1
+        fi
         ;;
 
         stop)

@@ -262,6 +262,44 @@ def list(
     console.print(table)
 
 
+@app.command()
+def diagram(
+        workflow: str = typer.Argument(..., help="Workflow name or full class path"),
+        output_file: Optional[str] = typer.Option(None, "--output", "-o", help="Output file path (e.g. workflow.mmd)")
+):
+    """Generate a Mermaid.js diagram for a workflow"""
+    workflow_class = load_workflow(workflow)
+    
+    # Create workflow instance (without runner, as we just need structure)
+    workflow_instance = workflow_class(None)
+    
+    # Initialize basic setup if needed to discover dynamic steps
+    try:
+        if hasattr(workflow_instance, 'setup'):
+            # We might need to mock config if setup relies on it
+            workflow_instance.setup()
+    except Exception as e:
+        console.print(f"[yellow]Warning: Workflow setup failed, diagram might be incomplete: {e}[/]")
+
+    # Generate diagram
+    try:
+        mermaid_code = workflow_instance.to_mermaid()
+        
+        if output_file:
+            with open(output_file, "w") as f:
+                f.write(mermaid_code)
+            console.print(f"[green]Diagram saved to {output_file}[/]")
+        else:
+            console.print("\n[bold]Mermaid Diagram:[/]")
+            print(mermaid_code)
+            console.print("\n[dim]Copy the above code into a Mermaid live editor to visualize.[/]")
+            
+    except Exception as e:
+        console.print(f"[red]Error generating diagram: {e}[/]")
+        raise typer.Exit(1)
+
+
+
 def get_config_value(key: str, prompt: str, hide_input: bool = False) -> str:
     """Get value from environment or prompt user"""
     import os

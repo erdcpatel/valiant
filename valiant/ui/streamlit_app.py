@@ -265,6 +265,47 @@ def main():
                             user_inputs[field['name']] = None
                     elif field['type'] == 'checkbox' or field['type'] == 'boolean':
                         user_inputs[field['name']] = st.checkbox(field['label'], value=field.get('default', False))
+                    elif field['type'] == 'email':
+                        user_inputs[field['name']] = st.text_input(
+                            field['label'], value=field.get('default', '')
+                        )
+                    else:
+                        # Fallback for unknown types
+                        user_inputs[field['name']] = st.text_input(
+                            field['label'], value=field.get('default', '')
+                        )
+
+        # Workflow Visualization
+        with st.expander("📊 Workflow Diagram", expanded=False):
+            try:
+                # Use ValiantAPI directly since we are on the server side
+                diagram_code = ValiantAPI.get_workflow_diagram(selected_workflow)
+                
+                # HTML template to render Mermaid
+                html_code = f"""
+                <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+                <script>
+                    mermaid.initialize({{
+                        startOnLoad: true,
+                        theme: 'default',
+                        securityLevel: 'loose',
+                    }});
+                </script>
+                <div class="mermaid" style="text-align: center; background-color: #f8f9fa; padding: 20px; border-radius: 10px;">
+                    {diagram_code}
+                </div>
+                """
+                
+                # Render using Streamlit components
+                import streamlit.components.v1 as components
+                components.html(html_code, height=400, scrolling=True)
+                
+                # Show raw code option
+                if st.checkbox("Show Mermaid Code"):
+                    st.code(diagram_code, language="mermaid")
+                    
+            except Exception as e:
+                st.error(f"Failed to load diagram: {str(e)}")
 
         # Run workflow button
         st.markdown("")

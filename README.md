@@ -177,14 +177,16 @@ Run workflows from command line:
 python run.py run <workflow_name>                    # Interactive mode
 python run.py run <workflow_name> --set key=value   # Provide parameters
 python run.py list                                  # List available workflows
+python run.py diagram <workflow_name>              # Generate workflow diagram
 ```
-
-Available workflows: `demo`, `user_management`
 
 ### Example Commands
 ```bash
 # Run demo workflow with parameters
 python run.py run demo --set user_name="Alice" --set user_email="alice@example.com"
+
+# Generate diagram for demo workflow
+python run.py diagram demo --output demo.mmd
 
 # Run user management workflow
 python run.py run user_management --set username=john --set email=john@example.com --set action=create --set role=user
