@@ -1,39 +1,52 @@
-# Byte-compiled / optimized / compiled files
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
 *.pyd
 *.pyo
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
 
-# Virtual environment
-venv/
+# Virtual environments
 .venv/
+venv/
 env/
 .env/
 
-# Distribution / build files
-dist/
-build/
-*.egg-info/
-.eggs/
+# Environment files — NEVER commit secrets
+.env
+.env.*
+!.env.example
 
-# Editor-specific files
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs and PID files
+*.log
+*.pid
+logs/
+valiant/ui/logs/
+valiant/ui/pids/
+
+# Valiant runtime artifacts
+context.json
+system_health_report*.json
+
+# IDE
 .vscode/
 .idea/
-
-# Operating System files
+*.swp
+*.swo
 .DS_Store
 Thumbs.db
 
-# Log files
-*.log
-*.pid
-
-# Sensitive information (e.g., API keys, database credentials)
-*.env
-config.ini
-secrets.py
-
-__pycache__/
-.DS_Store
-ui/logs/
-ui/pids/
+# Testing / linting caches
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/

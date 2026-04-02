@@ -1,6 +1,0 @@
-typer[all]
-rich
-requests
-python-dotenv
-sqlalchemy
-aiohttp
