@@ -1,5 +1,16 @@
 #!/usr/bin/env python
-from valiant.cli import app
+"""
+Valiant CLI launcher.
+"""
+import sys
+from pathlib import Path
+
+# Add project root to sys.path
+root_dir = Path(__file__).resolve().parent
+if str(root_dir) not in sys.path:
+    sys.path.insert(0, str(root_dir))
+
+from backend.valiant.cli.main import app
 
 if __name__ == "__main__":
     app()

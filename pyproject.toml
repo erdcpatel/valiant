@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "valiant"
+version = "3.0.0"
+description = "Developer-first Python Workflow Automation & Orchestration Platform"
+readme = "README.md"
+authors = [{ name = "Valiant Team" }]
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.28.0",
+    "pydantic>=2.6.0",
+    "sqlalchemy>=2.0.0",
+    "typer>=0.12.0",
+    "rich>=13.7.0",
+    "python-dotenv>=1.0.0",
+    "requests>=2.31.0",
+    "websockets>=12.0",
+    "pyyaml>=6.0",
+    "croniter>=2.0.0",
+    "polars>=1.0.0"
+]
+
+[project.scripts]
+valiant = "backend.valiant.cli.main:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["backend*", "valiant*"]

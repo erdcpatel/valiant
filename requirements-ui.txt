@@ -1,5 +1,0 @@
-streamlit
-fastapi
-uvicorn
-websockets
-python-multipart
