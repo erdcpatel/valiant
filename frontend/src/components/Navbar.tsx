@@ -37,7 +37,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               VALIANTFLOW
             </span>
             <span className="ml-2 px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase bg-sky-500/10 text-sky-400 border border-sky-500/20 rounded-full">
-              v0.0.1
+              v0.0.1 Beta
             </span>
           </div>
         </div>

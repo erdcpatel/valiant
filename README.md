@@ -2,6 +2,9 @@
 
 ValiantFlow is a **developer-first Python Workflow Automation & Orchestration Platform** built for simplicity, high performance, and enterprise reliability (published on PyPI as [`valiantflow`](https://pypi.org/project/valiantflow/)). Define complex multi-step automated workflows with Python decorators, execute them via CLI, Web UI, or REST API, and monitor live step-by-step executions in real-time.
 
+> [!NOTE]
+> **Public Beta (v0.0.1)**: ValiantFlow is currently in active public beta. All workflows, execution engine primitives, and web dashboard features are fully operational. Contributions, issues, and feature requests are welcomed!
+
 ---
 
 ## ✨ Features
