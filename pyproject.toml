@@ -1,14 +1,28 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "valiant"
+name = "valiantflow"
 version = "3.0.0"
 description = "Developer-first Python Workflow Automation & Orchestration Platform"
 readme = "README.md"
-authors = [{ name = "Valiant Team" }]
+authors = [{ name = "ValiantFlow Team" }]
+license = { text = "MIT" }
 requires-python = ">=3.10"
+keywords = ["workflow", "orchestration", "fastapi", "react", "automation", "polars", "devops"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Framework :: FastAPI",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Build Tools",
+]
 dependencies = [
     "fastapi>=0.110.0",
     "uvicorn[standard]>=0.28.0",
@@ -24,9 +38,19 @@ dependencies = [
     "polars>=1.0.0"
 ]
 
+[project.urls]
+Homepage = "https://github.com/erdcpatel/valiant"
+Documentation = "https://github.com/erdcpatel/valiant#readme"
+Repository = "https://github.com/erdcpatel/valiant.git"
+Issues = "https://github.com/erdcpatel/valiant/issues"
+
 [project.scripts]
 valiant = "backend.valiant.cli.main:main"
+valiantflow = "backend.valiant.cli.main:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["backend*", "valiant*"]
+
+[tool.setuptools.package-data]
+"backend.valiant" = ["web/**/*", "*.html", "*.css", "*.js"]

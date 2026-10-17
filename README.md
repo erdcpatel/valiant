@@ -1,6 +1,6 @@
-# 🚀 Valiant — Workflow Automation Platform
+# 🚀 ValiantFlow — Workflow Automation Platform
 
-Valiant is a **developer-first Python Workflow Automation & Orchestration Platform** built for simplicity, high performance, and enterprise reliability. Define complex multi-step automated workflows with Python decorators, execute them via CLI, Web UI, or REST API, and monitor live step-by-step executions in real-time.
+ValiantFlow is a **developer-first Python Workflow Automation & Orchestration Platform** built for simplicity, high performance, and enterprise reliability (published on PyPI as [`valiantflow`](https://pypi.org/project/valiantflow/)). Define complex multi-step automated workflows with Python decorators, execute them via CLI, Web UI, or REST API, and monitor live step-by-step executions in real-time.
 
 ---
 
@@ -19,9 +19,10 @@ Valiant is a **developer-first Python Workflow Automation & Orchestration Platfo
 - **🛠️ Built-in DevOps Tooling Suite**: Out-of-the-box helper utilities for multi-repo branch management (`GitHelper`), POM versioning (`MavenHelper`), and base image updates (`DockerHelper`).
 - **📊 First-Class Tabular Data (Polars Exclusively)**: Native support for SQL query results, high-throughput datasets, and analytics transformations powered strictly by Polars (zero Pandas). Dual-tier architecture (compact UI preview + zero-copy Parquet artifact caching), instant (<5ms) lazy in-drawer search/sort/pagination, and 1-click downloads (`CSV`, `Parquet`, `JSON`).
 - **📑 Standalone Multi-Tab HTML Execution & Audit Reports**: Single-click offline-ready interactive reports with zero external dependencies, embedded CSS/SVGs, 5 tabs (Executive Overview with duration distribution bar, Step Breakdown with Expanders and filter pills, Polars Tabular Datasets with live client-side search/sort/CSV copy, Governance Audit Trail with verification seal, and Raw Logs Monospace Terminal & Masked Context JSON), Dark/Light theme switch, and browser-native print-to-PDF (`@media print`).
+- **👁️ Client Template Filtering**: One-click UI toggle to hide or show built-in default templates (`Show/Hide Default Templates`) with persistent local storage, keeping the catalog clean for custom workflows while preserving templates for AI agents to inspect and author.
 - **🔴 Real-Time Live Streaming**: Watch steps execute in real-time over WebSockets with live progress bars, spinners, and log consoles.
 - **🔒 Sensitive Secret Masking**: Passwords, API tokens, and credentials are automatically redacted in DB history and API responses.
-- **💻 Rich CLI Tool**: Run, list, inspect, report, stream logs, and scaffold workflows directly from the terminal (`valiant run`, `valiant list`, `valiant runs`, `valiant logs`, `valiant report`, `valiant new`).
+- **💻 Rich CLI Tool**: Run, list, inspect, report, stream logs, and scaffold workflows directly from the terminal via `valiant` or `valiantflow` (`valiant run`, `valiant list`, `valiant runs`, `valiant logs`, `valiant report`, `valiant new`).
 
 ---
 
@@ -47,32 +48,33 @@ valiant/
 
 ## 🚀 Quick Start (3 Steps)
 
-### 1. Backend Setup
+### 1. Installation
+
+**Option A: Install from PyPI**
+```bash
+pip install valiantflow
+```
+
+**Option B: Local Development Clone**
 ```bash
 # Create and activate virtual environment (Python 3.10+)
 python3 -m venv .venv
 source .venv/bin/activate
 
-# Install Valiant and dependencies
+# Install in editable mode
 pip install -e .
+
+# Build the React web dashboard (for local dev)
+cd frontend && npm install && npm run build && cd ..
 ```
 
-### 2. Frontend Build
-```bash
-# Build the React web dashboard
-cd frontend
-npm install
-npm run build
-cd ..
-```
-
-### 3. Launch Platform
+### 2. Launch Platform
 ```bash
 # Start the full platform (FastAPI + Web Dashboard)
 valiant serve
 
-# Or run via run.py
-python run.py serve
+# Or using the valiantflow alias
+valiantflow serve
 ```
 
 - **Web Dashboard**: [http://localhost:8000/](http://localhost:8000/)

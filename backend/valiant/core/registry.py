@@ -16,9 +16,12 @@ class WorkflowRegistry:
 
     def __init__(self):
         self._workflows: Dict[str, Type[Workflow]] = {}
+        self._default_workflow_ids: set = set()
 
-    def register(self, name: str, workflow_cls: Type[Workflow]) -> None:
+    def register(self, name: str, workflow_cls: Type[Workflow], is_default: bool = False) -> None:
         self._workflows[name] = workflow_cls
+        if is_default:
+            self._default_workflow_ids.add(name)
 
     def get(self, name: str) -> Optional[Type[Workflow]]:
         # Sync with global decorator registry
@@ -27,7 +30,7 @@ class WorkflowRegistry:
                 self._workflows[k] = v
         return self._workflows.get(name)
 
-    def list_workflows(self) -> Dict[str, Dict[str, Any]]:
+    def list_workflows(self, include_defaults: bool = True) -> Dict[str, Dict[str, Any]]:
         """Return metadata for all registered workflows."""
         for k, v in get_global_registry().items():
             if k not in self._workflows:
@@ -36,6 +39,10 @@ class WorkflowRegistry:
         result = {}
         for name, cls in self._workflows.items():
             instance = cls() if isinstance(cls, type) else cls
+            is_default = (name in self._default_workflow_ids) or bool(getattr(cls, "is_default", False) or getattr(instance, "is_default", False))
+            if not include_defaults and is_default:
+                continue
+
             steps = instance.get_steps()
             inputs = instance.inputs()
             result[name] = {
@@ -45,6 +52,7 @@ class WorkflowRegistry:
                 "version": getattr(cls, "version", "1.0.0"),
                 "author": getattr(cls, "author", None),
                 "tags": getattr(cls, "tags", []),
+                "is_default": is_default,
                 "step_count": len(steps),
                 "steps": [
                     {
@@ -94,6 +102,11 @@ class WorkflowRegistry:
             if str(p.parent) not in sys.path:
                 sys.path.insert(0, str(p.parent))
 
+            # Check if this directory is the platform's default/template workflows folder
+            project_root = Path(__file__).resolve().parent.parent.parent.parent
+            default_dir = (project_root / "backend" / "workflows").resolve()
+            is_default_dir = p.resolve() == default_dir
+
             for file_path in p.glob("*.py"):
                 if file_path.name.startswith("__"):
                     continue
@@ -110,6 +123,8 @@ class WorkflowRegistry:
                             if issubclass(obj, Workflow) and obj is not Workflow:
                                 wf_id = getattr(obj, "workflow_id", obj.__name__)
                                 self._workflows[wf_id] = obj
+                                if is_default_dir:
+                                    self._default_workflow_ids.add(wf_id)
 
                         # Also discover top-level functional Workflow instances
                         for _, obj in inspect.getmembers(mod):
@@ -117,6 +132,8 @@ class WorkflowRegistry:
                                 wf_id = getattr(obj, "workflow_id", getattr(obj, "name", None))
                                 if wf_id:
                                     self._workflows[wf_id] = obj
+                                    if is_default_dir:
+                                        self._default_workflow_ids.add(wf_id)
                 except Exception as e:
                     print(f"[Registry Discovery Error] {file_path.name}: {e}")
 

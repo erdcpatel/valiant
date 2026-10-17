@@ -58,6 +58,8 @@ def test_generate_run_html_report_basic():
     assert "Step 1: Init" in html
     assert "Step 2: Process" in html
     assert "test_operator" in html
+    assert "ValiantFlow" in html
+    assert "VALIANTFLOW" in html
 
 
 def test_generate_run_html_report_with_approval_and_tabular():

@@ -33,7 +33,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Valiant Workflow Platform",
+    title="ValiantFlow Workflow Platform",
     description="Developer-first Workflow Automation & Orchestration Platform",
     version="3.0.0",
     lifespan=lifespan
@@ -62,18 +62,25 @@ app.include_router(ws_router, prefix="/api")
 def health_check():
     return {
         "status": "healthy",
-        "service": "valiant-api",
+        "service": "valiantflow-api",
         "version": "3.0.0"
     }
 
 
 # Static Frontend Mounting
-# Find frontend/dist relative to project root
+# Check repository root frontend/dist first (development), then bundled package data web/ (installed wheel)
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 FRONTEND_DIST = PROJECT_ROOT / "frontend" / "dist"
+BUNDLED_WEB = Path(__file__).resolve().parent.parent / "web"
 
+STATIC_DIR = None
 if FRONTEND_DIST.exists() and (FRONTEND_DIST / "index.html").exists():
-    app.mount("/assets", StaticFiles(directory=str(FRONTEND_DIST / "assets")), name="assets")
+    STATIC_DIR = FRONTEND_DIST
+elif BUNDLED_WEB.exists() and (BUNDLED_WEB / "index.html").exists():
+    STATIC_DIR = BUNDLED_WEB
+
+if STATIC_DIR:
+    app.mount("/assets", StaticFiles(directory=str(STATIC_DIR / "assets")), name="assets")
 
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str, request: Request):
@@ -88,15 +95,15 @@ if FRONTEND_DIST.exists() and (FRONTEND_DIST / "index.html").exists():
         ):
             return JSONResponse({"error": "Not found"}, status_code=404)
 
-        target_file = FRONTEND_DIST / full_path
+        target_file = STATIC_DIR / full_path
         if target_file.exists() and target_file.is_file():
             return FileResponse(target_file)
-        return FileResponse(FRONTEND_DIST / "index.html")
+        return FileResponse(STATIC_DIR / "index.html")
 else:
     @app.get("/")
     def index():
         return {
-            "message": "Valiant Workflow Platform API is running.",
+            "message": "ValiantFlow Workflow Platform API is running.",
             "docs_url": "/docs",
             "frontend_status": "Frontend not built yet. Run 'npm run build' inside frontend/"
         }

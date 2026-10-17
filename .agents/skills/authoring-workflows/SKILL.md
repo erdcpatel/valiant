@@ -375,9 +375,9 @@ docker.update_base_image("eclipse-temurin:21-jre-alpine")
 
 ---
 
-## 7. How Default Workflows Serve Clients
+## 7. Built-in Templates & Client Catalog Isolation
 
-When Valiant is installed or cloned, the default workflows in `backend/workflows/` serve as out-of-the-box working references:
+When ValiantFlow is installed or cloned, default workflows in `backend/workflows/` serve as out-of-the-box working references:
 - **`compact_micro_workflow.py`**: Reference for ultra-minimal functional micro-workflows (`wf = workflow(...)`), direct parameter injection, auto step sequencing, and Polars DataFrame auto-wrapping.
 - **`bom_test_automation.py`**: Reference for multi-repo Git/Maven/Docker upgrade automation, desktop `context.exec`, deployment polling, dual approvals, and `mock_mode` testing.
 - **`sql_query_analytics.py`**: Reference for Polars DataFrame integration, SQL querying, and Parquet caching.
@@ -385,5 +385,9 @@ When Valiant is installed or cloned, the default workflows in `backend/workflows
 - **`api_failure_demo.py`**: Reference for error handling, diagnostics, and Smart Resumption.
 - **`demo.py`**: Reference for inputs, conditional branches, and metrics.
 
-Clients can run these default workflows immediately to verify platform health or duplicate them to build customized production automations.
+### Client View & AI Learning Separation:
+- **Permanent AI Learning Resource**: Default workflows remain in `backend/workflows/` so AI agents can inspect, learn, and author domain-specific workflows following validated platform patterns.
+- **Automatic Tagging**: Discovered workflows from `backend/workflows/` (or declaring `is_default = True`) receive `"is_default": True` in their schema.
+- **Client UI Toggle**: Clients can toggle "Hide Built-in Templates" in the Web UI catalog with 1 click (persisted in `localStorage`), keeping the interface focused on custom enterprise workflows.
+- **API & Environment Filtering**: `GET /api/workflows?include_defaults=false` or setting `VALIANT_HIDE_DEFAULTS=1` excludes default templates from API responses.
 
