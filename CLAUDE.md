@@ -5,7 +5,7 @@ Claude Code must use [`AGENTS.md`](./AGENTS.md) as its primary context and maste
 👉 **Master Specification: [`AGENTS.md`](./AGENTS.md)**
 
 ### Quick Reference:
-- **Project**: ValiantFlow Python Workflow Automation & Orchestration Platform (PyPI: `valiantflow`, v3.0.0)
+- **Project**: ValiantFlow Python Workflow Automation & Orchestration Platform (PyPI: `valiantflow`, v0.0.1)
 - **Backend**: FastAPI, Typer, Rich, SQLAlchemy 2.0, Pydantic v2
 - **Frontend**: React 19, TypeScript, Vite 8, Tailwind CSS 3.4
 - **Databases**: Strict SQLite file isolation per environment (`valiant_{env}.db`)
