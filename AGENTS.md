@@ -1,4 +1,4 @@
-# Valiant — AI Agent Architecture & Operating Standards (`AGENTS.md`)
+# ValiantFlow — AI Agent Architecture & Operating Standards (`AGENTS.md`)
 
 This document serves as the master source of truth for all AI agents (Antigravity, GitHub Copilot, Claude Code, Cursor, and others) operating on this repository. All agent decisions, code generation, and automated refactoring must strictly adhere to the standards outlined below.
 
@@ -6,7 +6,7 @@ This document serves as the master source of truth for all AI agents (Antigravit
 
 ## 1. Project Overview & Tech Stack
 
-**Valiant** is a developer-first Python workflow automation and orchestration platform with a high-performance FastAPI engine, Typer CLI, and modern React 19 visual operations dashboard.
+**ValiantFlow** (published on PyPI as `valiantflow`, package module `valiant`, CLI entry points `valiant` and `valiantflow`) is a developer-first Python workflow automation and orchestration platform with a high-performance FastAPI engine, Typer CLI, and modern React 19 visual operations dashboard.
 
 ### Core Technologies
 - **Backend**:
@@ -101,6 +101,10 @@ valiant/
     - **Direct Parameter Injection**: Step functions declare required parameters directly (`def step(batch_id: str, count: int, ctx=None):`); the runner auto-resolves arguments from workflow inputs and execution context.
     - **Automatic Result Wrapping**: Step functions can directly return Polars DataFrames (auto-captured as dual-tier Parquet artifacts), dictionaries, strings, booleans, or `None` without boilerplate `self.success(...)` calls.
     - **Backward Compatibility**: Fully backward compatible with legacy `Workflow` subclasses and explicit `InputField` definitions.
+13. **Default Template Filtering & Zero-Refactoring PyPI Packaging**:
+    - **PyPI Distribution Identity**: Distributed on PyPI as `valiantflow` (`pip install valiantflow`) with dual CLI entry points (`valiant` and `valiantflow`). Internal Python imports remain `import valiant` or `from backend.valiant import ...` with zero breaking refactoring.
+    - **Built-in Template Isolation**: Workflows discovered from `backend/workflows/` or declaring `is_default=True` are tagged with `"is_default": True`. They remain permanently in the codebase so AI agents can inspect and author new workflows.
+    - **Client Catalog Toggle**: The UI provides a 1-click toggle button (`Hide / Show Built-in Templates`) with client-side persistence in `localStorage`, and the REST API supports `include_defaults=bool` (or `VALIANT_HIDE_DEFAULTS=1` env var) so clients can work with only custom domain workflows.
 
 ---
 

@@ -42,6 +42,7 @@ export interface WorkflowSchema {
   version: string;
   author?: string;
   tags: string[];
+  is_default?: boolean;
   step_count: number;
   steps: StepSchema[];
   inputs: InputFieldSchema[];

@@ -14,6 +14,8 @@ import {
   Activity,
   Network,
   SlidersHorizontal,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 
 interface WorkflowsPageProps {
@@ -39,6 +41,11 @@ export const WorkflowsPage: React.FC<WorkflowsPageProps> = ({
   const [search, setSearch] = useState('');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
 
+  const [showDefaults, setShowDefaults] = useState<boolean>(() => {
+    const saved = localStorage.getItem('valiant_show_defaults');
+    return saved !== null ? saved === 'true' : true;
+  });
+
   useEffect(() => {
     if (initialModalWf && workflows[initialModalWf]) {
       setSelectedWorkflow(workflows[initialModalWf]);
@@ -46,6 +53,7 @@ export const WorkflowsPage: React.FC<WorkflowsPageProps> = ({
   }, [initialModalWf, workflows]);
 
   const workflowList = Object.values(workflows);
+  const defaultCount = workflowList.filter((w) => w.is_default).length;
 
   // Compute summary stats
   const totalRuns = recentRuns.length;
@@ -54,6 +62,9 @@ export const WorkflowsPage: React.FC<WorkflowsPageProps> = ({
 
   // Filter workflows
   const filteredWorkflows = workflowList.filter((wf) => {
+    if (!showDefaults && wf.is_default) {
+      return false;
+    }
     const matchesSearch =
       wf.name.toLowerCase().includes(search.toLowerCase()) ||
       wf.description.toLowerCase().includes(search.toLowerCase()) ||
@@ -120,33 +131,62 @@ export const WorkflowsPage: React.FC<WorkflowsPageProps> = ({
           />
         </div>
 
-        {allTags.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
+        <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
+          {defaultCount > 0 && (
             <button
-              onClick={() => setSelectedTag(null)}
-              className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
-                selectedTag === null
-                  ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
-                  : 'bg-slate-900 text-slate-400 border border-slate-800 hover:text-slate-200'
+              type="button"
+              onClick={() => {
+                const next = !showDefaults;
+                setShowDefaults(next);
+                localStorage.setItem('valiant_show_defaults', String(next));
+              }}
+              className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors ${
+                showDefaults
+                  ? 'bg-slate-900 border-slate-700/80 text-slate-300 hover:text-white hover:border-slate-600'
+                  : 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/20'
               }`}
+              title={showDefaults ? 'Hide default template workflows' : 'Show default template workflows'}
             >
-              All
+              {showDefaults ? (
+                <EyeOff className="h-3.5 w-3.5 text-slate-400" />
+              ) : (
+                <Eye className="h-3.5 w-3.5 text-indigo-400" />
+              )}
+              <span>{showDefaults ? 'Hide Default Templates' : 'Show Default Templates'}</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-800/80 border border-slate-700 font-mono text-slate-300">
+                {defaultCount}
+              </span>
             </button>
-            {allTags.map((tag) => (
+          )}
+
+          {allTags.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5">
               <button
-                key={tag}
-                onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
+                onClick={() => setSelectedTag(null)}
                 className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
-                  selectedTag === tag
+                  selectedTag === null
                     ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
                     : 'bg-slate-900 text-slate-400 border border-slate-800 hover:text-slate-200'
                 }`}
               >
-                #{tag}
+                All
               </button>
-            ))}
-          </div>
-        )}
+              {allTags.map((tag) => (
+                <button
+                  key={tag}
+                  onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
+                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+                    selectedTag === tag
+                      ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
+                      : 'bg-slate-900 text-slate-400 border border-slate-800 hover:text-slate-200'
+                  }`}
+                >
+                  #{tag}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Workflow Cards Grid */}
@@ -165,6 +205,11 @@ export const WorkflowsPage: React.FC<WorkflowsPageProps> = ({
                   <span className="text-xs font-mono font-semibold text-slate-500">v{wf.version}</span>
                 </div>
                 <div className="flex items-center space-x-1.5">
+                  {wf.is_default && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono text-amber-300 bg-amber-500/10 border border-amber-500/20" title="Built-in default template">
+                      Template
+                    </span>
+                  )}
                   {Object.keys(wf.profiles || {}).length > 0 && (
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-mono text-indigo-300 bg-indigo-500/10 border border-indigo-500/20">
                       ⚡ {Object.keys(wf.profiles || {}).length} Profiles
@@ -241,6 +286,31 @@ export const WorkflowsPage: React.FC<WorkflowsPageProps> = ({
           </div>
         ))}
       </div>
+
+      {filteredWorkflows.length === 0 && (
+        <div className="p-12 text-center rounded-2xl bg-slate-900/40 border border-slate-800/80 space-y-3">
+          <Layers className="h-10 w-10 text-slate-600 mx-auto" />
+          <h4 className="text-base font-semibold text-slate-200">No workflows match your view</h4>
+          <p className="text-xs text-slate-400 max-w-md mx-auto">
+            {!showDefaults && defaultCount > 0
+              ? `Built-in default templates are currently hidden (${defaultCount} templates available). You can create custom workflows in your repository or click below to show templates.`
+              : 'Try clearing your search keyword or selected tag filter.'}
+          </p>
+          {!showDefaults && defaultCount > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                setShowDefaults(true);
+                localStorage.setItem('valiant_show_defaults', 'true');
+              }}
+              className="mt-2 inline-flex items-center space-x-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-sky-400 bg-sky-500/10 border border-sky-500/20 hover:bg-sky-500/20 transition-colors"
+            >
+              <Eye className="h-4 w-4" />
+              <span>Show {defaultCount} Built-in Templates</span>
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Run Configuration & Topology Modal */}
       {selectedWorkflow && (
