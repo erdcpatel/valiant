@@ -118,3 +118,88 @@ def step_1():
         result = runner.invoke(app, ["list", "--dir", tmp_dir, "--no-defaults"])
         assert result.exit_code == 0
         assert "special_flow" in result.output
+
+
+def test_context_exec_empty_command_graceful():
+    """Verify context.exec('') returns failed CommandResult rather than crashing."""
+    import asyncio
+    from backend.valiant.core.context import WorkflowContext
+
+    async def _run():
+        ctx = WorkflowContext()
+        res = await ctx.exec("")
+        assert not res.success
+        assert res.exit_code == -1
+        assert "Command list cannot be empty" in res.stderr
+
+    asyncio.run(_run())
+
+
+def test_tabular_data_json_safety_with_nan_decimal_bytes():
+    """Verify Polars DataFrame with NaNs, Decimals, bytes, and dates serializes safely."""
+    import polars as pl
+    from decimal import Decimal
+    from datetime import date
+    import json
+    from backend.valiant.core.tabular import to_tabular_payload
+
+    df = pl.DataFrame({
+        "name": ["Alice", "Bob"],
+        "score": [95.5, float("nan")],
+        "amount": [Decimal("100.25"), Decimal("250.50")],
+        "raw_bytes": [b"hello", b"world"],
+        "joined": [date(2026, 1, 1), date(2026, 6, 1)]
+    })
+
+    payload = to_tabular_payload(df, dataset_name="edge_case_data")
+    assert payload["total_rows"] == 2
+    
+    # Must be 100% standard JSON-serializable
+    dumped = json.dumps(payload)
+    parsed = json.loads(dumped)
+    assert parsed["dataset_name"] == "edge_case_data"
+    assert parsed["preview_rows"][1]["score"] is None  # NaN converted to None
+
+
+def test_tabular_pagination_clamp_zero_division():
+    """Verify query_tabular_artifact handles page_size=0 without ZeroDivisionError."""
+    import polars as pl
+    import tempfile
+    from backend.valiant.core.tabular import save_tabular_artifact, query_tabular_artifact
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        os.environ["VALIANT_ARTIFACT_DIR"] = tmp_dir
+        df = pl.DataFrame({"id": [1, 2, 3], "val": ["a", "b", "c"]})
+        save_tabular_artifact(df, run_id="run_clamp_test", step_name="step_table", env="dev")
+
+        # Passing page_size=0 should be safely clamped to page_size=1
+        res = query_tabular_artifact(
+            run_id="run_clamp_test",
+            step_name="step_table",
+            env="dev",
+            page=0,
+            page_size=0
+        )
+        assert res["success"] is True
+        assert res["page"] == 1
+        assert res["page_size"] == 1
+
+
+def test_cli_new_sanitizes_identifier():
+    """Verify 'valiant new' sanitizes kebab-case to snake_case Python identifiers."""
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        result = runner.invoke(app, ["new", "my-kebab-pipeline", "--dir", tmp_dir])
+        assert result.exit_code == 0
+        assert "my-kebab-pipeline" in result.output
+        assert "my_kebab_pipeline" in result.output
+        target_file = Path(tmp_dir) / "my_kebab_pipeline.py"
+        assert target_file.is_file()
+        assert "class MyKebabPipelineWorkflow" in target_file.read_text(encoding="utf-8")
+
+
+def test_cli_run_warns_on_malformed_set():
+    """Verify 'valiant run' warns on malformed key-value parameters."""
+    result = runner.invoke(app, ["run", "demo", "--set", "malformed_no_equals"])
+    # Should warn about malformed argument
+    assert "Warning: Ignoring malformed --set argument" in result.output
+

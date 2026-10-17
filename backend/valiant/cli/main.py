@@ -71,13 +71,12 @@ def run_workflow(
     """Execute a workflow directly in the terminal."""
     search_dirs = [directory] if directory else None
     registry.discover(search_dirs=search_dirs)
-    wf_class = registry.get(workflow_name)
-    if not wf_class:
+    wf_instance = registry.get_instance(workflow_name)
+    if not wf_instance:
         console.print(f"[red]Error: Workflow '{workflow_name}' not found.[/red]")
         console.print(f"Available: {list(registry.list_workflows().keys())}")
         raise typer.Exit(code=1)
 
-    wf_instance = wf_class()
     inputs = {}
 
     # 1. Parse --set arguments
@@ -86,6 +85,8 @@ def run_workflow(
             if "=" in item:
                 k, v = item.split("=", 1)
                 inputs[k.strip()] = v.strip()
+            else:
+                console.print(f"[yellow]Warning: Ignoring malformed --set argument '{item}' (expected key=value)[/yellow]")
 
     # 2. Check required inputs (Prompt ONLY if required and no default exists)
     for field in wf_instance.inputs():
@@ -215,6 +216,14 @@ def scaffold_workflow(
     style: str = typer.Option("compact", "--style", "-s", help="Template style: 'compact' (modern type-annotated), 'functional' (micro-workflow), or 'standard'")
 ):
     """Scaffold a new production-ready workflow template file."""
+    import re
+    clean_name = re.sub(r"[^a-zA-Z0-9_]", "_", name).strip("_").lower()
+    if clean_name and clean_name[0].isdigit():
+        clean_name = f"wf_{clean_name}"
+    if clean_name != name:
+        console.print(f"[yellow]Notice: Normalizing workflow name '{name}' to valid Python identifier '{clean_name}'[/yellow]")
+        name = clean_name
+
     class_name = "".join(part.capitalize() for part in name.split("_")) + "Workflow"
     if directory:
         target_dir = Path(directory)

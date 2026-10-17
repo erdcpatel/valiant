@@ -115,14 +115,13 @@ async def trigger_run(
 ):
     """Trigger a workflow execution synchronously or asynchronously."""
     registry.discover()
-    wf_class = registry.get(payload.workflow_name)
-    if not wf_class:
+    wf_instance = registry.get_instance(payload.workflow_name)
+    if not wf_instance:
         raise HTTPException(status_code=404, detail=f"Workflow '{payload.workflow_name}' not found")
 
     target_env = normalize_environment(payload.environment or request.headers.get("x-valiant-env"))
     target_profile = payload.profile or target_env
     run_id = payload.run_id or f"run_{uuid.uuid4().hex[:8]}"
-    wf_instance = wf_class()
 
     # Determine actor (from auth cookie, bearer token, or payload override)
     triggered_by = payload.triggered_by or current_user.get("username", "anonymous")
@@ -215,11 +214,10 @@ async def resume_run(
 
     workflow_name = parent_data["workflow_name"]
     registry.discover()
-    wf_class = registry.get(workflow_name)
-    if not wf_class:
+    wf_instance = registry.get_instance(workflow_name)
+    if not wf_instance:
         raise HTTPException(status_code=404, detail=f"Workflow '{workflow_name}' not found")
 
-    wf_instance = wf_class()
     ordered_steps = wf_instance.get_steps()
     step_names = [cfg.name for cfg, _ in ordered_steps]
 

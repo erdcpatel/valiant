@@ -6,7 +6,9 @@ from typing import Dict, Any, Optional, List, Tuple, Union
 import os
 import io
 import re
+import math
 import json
+from decimal import Decimal
 from datetime import datetime, date
 from pathlib import Path
 
@@ -25,18 +27,26 @@ def _get_artifact_path(env: str, run_id: str, step_name: str) -> Path:
 get_tabular_artifact_path = _get_artifact_path
 
 
+def _clean_polars_value(v: Any) -> Any:
+    """Recursively clean values to ensure 100% standard JSON compliance."""
+    if isinstance(v, (datetime, date)):
+        return v.isoformat()
+    if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
+        return None
+    if isinstance(v, Decimal):
+        return float(v)
+    if isinstance(v, bytes):
+        return v.decode("utf-8", errors="replace")
+    if isinstance(v, dict):
+        return {str(k): _clean_polars_value(val) for k, val in v.items()}
+    if isinstance(v, (list, tuple)):
+        return [_clean_polars_value(val) for val in v]
+    return v
+
+
 def _clean_polars_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Ensure rows are JSON-serializable by converting date/datetime to ISO strings."""
-    clean_rows = []
-    for r in rows:
-        clean_row = {}
-        for k, v in r.items():
-            if isinstance(v, (datetime, date)):
-                clean_row[k] = v.isoformat()
-            else:
-                clean_row[k] = v
-        clean_rows.append(clean_row)
-    return clean_rows
+    """Ensure rows are JSON-serializable without NaN/Inf/date errors."""
+    return [{k: _clean_polars_value(v) for k, v in r.items()} for r in rows]
 
 
 def is_polars_available() -> bool:
@@ -196,6 +206,9 @@ def query_tabular_artifact(
     Query, search, sort, and paginate a cached Parquet dataset with Polars lazy pushdown.
     Executes in <5ms directly from disk using memory-mapped Parquet scans.
     """
+    page = max(1, page)
+    page_size = max(1, min(page_size, 1000))
+
     import polars as pl
     path = _get_artifact_path(env, run_id, step_name)
     if not path.exists():

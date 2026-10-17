@@ -50,8 +50,8 @@ async def _dispatch_webhook_workflow(webhook: Dict[str, Any], payload: Dict[str,
     hook_name = webhook.get("name") or "webhook"
     hook_id = webhook["id"]
 
-    wf_cls = registry.get(wf_name)
-    if not wf_cls:
+    workflow_instance = registry.get_instance(wf_name)
+    if not workflow_instance:
         raise ValueError(f"Workflow '{wf_name}' not found in registry")
 
     # Construct input parameters from mapping or raw payload
@@ -70,7 +70,7 @@ async def _dispatch_webhook_workflow(webhook: Dict[str, Any], payload: Dict[str,
     inputs["_webhook_id"] = hook_id
 
     runner = WorkflowRunner(
-        workflow=wf_cls(),
+        workflow=workflow_instance,
         environment=env,
         profile=env,
         stop_on_failure=True

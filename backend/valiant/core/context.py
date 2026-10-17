@@ -270,7 +270,14 @@ class WorkflowContext:
             cmd_list = [str(c) for c in command]
 
         if not cmd_list:
-            raise ValueError("Command list cannot be empty")
+            return CommandResult(
+                command=[],
+                exit_code=-1,
+                stdout="",
+                stderr="Command list cannot be empty",
+                duration=0.0,
+                success=False
+            )
 
         # Cross-platform executable path resolution (handles mvn -> mvn.cmd on Windows)
         executable = shutil.which(cmd_list[0])
