@@ -197,12 +197,18 @@ def start_server(
 @app.command("new")
 def scaffold_workflow(
     name: str = typer.Argument(..., help="Workflow name in snake_case (e.g. data_sync)"),
-    directory: str = typer.Option("backend/workflows", "--dir", "-d", help="Target directory"),
+    directory: Optional[str] = typer.Option(None, "--dir", "-d", help="Target directory (defaults to 'workflows' or 'backend/workflows')"),
     style: str = typer.Option("compact", "--style", "-s", help="Template style: 'compact' (modern type-annotated), 'functional' (micro-workflow), or 'standard'")
 ):
     """Scaffold a new production-ready workflow template file."""
     class_name = "".join(part.capitalize() for part in name.split("_")) + "Workflow"
-    target_dir = Path(directory)
+    if directory:
+        target_dir = Path(directory)
+    elif Path("backend/workflows").is_dir():
+        target_dir = Path("backend/workflows")
+    else:
+        target_dir = Path("workflows")
+
     target_dir.mkdir(parents=True, exist_ok=True)
     target_file = target_dir / f"{name}.py"
 
@@ -214,7 +220,7 @@ def scaffold_workflow(
         template_code = f'''\"\"\"
 {name} - Functional Micro-Workflow
 \"\"\"
-from backend.valiant import workflow
+from valiantflow import workflow
 
 wf = workflow(
     "{name}",
@@ -252,7 +258,7 @@ def send_notification(ctx):
 {class_name} - Modern Compact Workflow
 \"\"\"
 from typing import Literal
-from backend.valiant import Workflow, step, workflow
+from valiantflow import Workflow, step, workflow
 
 
 @workflow(name="{name}", description="Automated workflow for {name.replace('_', ' ')}")
@@ -285,7 +291,7 @@ class {class_name}(Workflow):
         template_code = f'''\"\"\"
 {class_name} - Automated Workflow
 \"\"\"
-from backend.valiant import Workflow, step, workflow, InputField, InputType
+from valiantflow import Workflow, step, workflow, InputField, InputType
 
 
 @workflow(name="{name}", description="Automated workflow for {name.replace('_', ' ')}")

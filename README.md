@@ -106,13 +106,54 @@ valiant new my_automation
 
 ---
 
+---
+
+## 📂 Workflow Locations & Automatic Discovery
+
+When you install ValiantFlow in your own project, how does it discover your custom workflows?
+
+### 1. Standard Discovery Convention (`./workflows/`)
+By default, ValiantFlow automatically discovers all `.py` files inside a **`workflows/`** folder in your current working directory:
+```bash
+my-project/
+├── workflows/
+│   ├── data_pipeline.py
+│   └── user_sync.py
+```
+
+### 2. Instant Scaffolding
+Run `valiant new` in your terminal to generate a ready-to-run template in your `workflows/` directory:
+```bash
+# Scaffolds a new workflow into ./workflows/order_fulfillment.py
+valiant new order_fulfillment
+```
+
+### 3. Custom Directory via Environment Variable
+If you keep your workflows in a custom location, point `VALIANT_WORKFLOWS_DIR` to your directory:
+```bash
+export VALIANT_WORKFLOWS_DIR=/path/to/my/custom/workflows
+valiant list
+valiant serve
+```
+
+### 4. Discovery Search Priority
+ValiantFlow scans the following locations automatically:
+1. `$VALIANT_WORKFLOWS_DIR` (if set)
+2. `./workflows/*.py` (recommended project standard)
+3. `./backend/workflows/*.py` (full-stack application standard)
+4. Current directory `./*.py`
+
+In the Web UI (`http://localhost:8000/`), your custom workflows appear in the catalog. You can toggle **"Hide Default Templates"** to focus purely on your custom automations!
+
+---
+
 ## 📝 Authoring a Workflow
 
-Valiant supports both **Functional Micro-Workflows** (for scripts and quick automations) and **Modern Compact Classes** (for structured pipelines):
+Import directly from `valiantflow` (or `valiant`):
 
 ### Option A: Functional Micro-Workflow (Minimal Code)
 ```python
-from backend.valiant import workflow
+from valiantflow import workflow
 import polars as pl
 
 wf = workflow("telemetry_pipeline", description="Process and verify system telemetry")
@@ -138,7 +179,7 @@ def report(count: int = 50):
 ### Option B: Modern Compact Class (Zero InputField Ceremony)
 ```python
 from typing import Literal
-from backend.valiant import Workflow, step, workflow
+from valiantflow import Workflow, step, workflow
 
 @workflow(name="customer_onboarding", description="Onboard new customer and setup workspace")
 class CustomerOnboardingWorkflow(Workflow):
