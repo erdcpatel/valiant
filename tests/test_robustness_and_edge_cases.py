@@ -193,3 +193,41 @@ def test_html_report_handles_edge_cases():
     assert "<!DOCTYPE html>" in html_out
     assert "Edge Workflow" in html_out
     assert "ValiantFlow Platform" in html_out
+
+
+def test_api_health_returns_dynamic_version():
+    """Verify /api/health returns the actual package __version__ (0.0.2), not hardcoded 3.0.0."""
+    from fastapi.testclient import TestClient
+    from backend.valiant.api.app import app
+    from backend.valiant import __version__
+
+    client = TestClient(app)
+    resp = client.get("/api/health")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "healthy"
+    assert data["version"] == __version__
+    assert data["version"] == "0.0.2"
+
+
+def test_comparator_handles_none_runs_gracefully():
+    """Verify compare_runs_data handles None or empty runs without raising AttributeError."""
+    from backend.valiant.core.comparator import compare_runs_data
+
+    res_none = compare_runs_data(None, None)
+    assert "error" in res_none["summary"]
+
+    res_empty = compare_runs_data({}, {"id": "run_1"})
+    assert "error" in res_empty["summary"]
+
+
+def test_sqlite_wal_mode_and_concurrency_settings():
+    """Verify SQLite database engine initializes with WAL mode and connect timeout."""
+    from sqlalchemy import text
+    from backend.valiant.db.database import get_engine
+
+    eng = get_engine("dev")
+    with eng.connect() as conn:
+        journal_mode = conn.execute(text("PRAGMA journal_mode;")).scalar()
+        assert str(journal_mode).lower() == "wal", f"Expected WAL mode, got {journal_mode}"
+

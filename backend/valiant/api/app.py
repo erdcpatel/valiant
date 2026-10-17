@@ -20,6 +20,7 @@ from .routers.webhooks import router as webhooks_router
 from ..core.registry import registry
 from ..core.scheduler import scheduler
 from ..db.database import init_db
+from .. import __version__
 
 
 @asynccontextmanager
@@ -35,7 +36,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="ValiantFlow Workflow Platform",
     description="Developer-first Workflow Automation & Orchestration Platform",
-    version="3.0.0",
+    version=__version__,
     lifespan=lifespan
 )
 
@@ -63,7 +64,7 @@ def health_check():
     return {
         "status": "healthy",
         "service": "valiantflow-api",
-        "version": "3.0.0"
+        "version": __version__
     }
 
 

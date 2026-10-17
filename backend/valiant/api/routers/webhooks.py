@@ -113,11 +113,12 @@ async def handle_inbound_webhook(
     if not hook.get("enabled"):
         raise HTTPException(status_code=403, detail="Webhook is currently disabled")
 
-    # Validate secret header if required
+    # Validate secret header if required (constant-time comparison)
     required_secret = hook.get("secret_header")
     if required_secret:
+        import hmac
         provided = x_valiant_secret or (authorization.replace("Bearer ", "") if authorization else None)
-        if provided != required_secret:
+        if not provided or not hmac.compare_digest(provided, required_secret):
             raise HTTPException(status_code=401, detail="Invalid webhook secret token")
 
     # Ingest JSON payload safely

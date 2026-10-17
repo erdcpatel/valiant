@@ -39,7 +39,7 @@ def get_engine(env: str = "dev") -> Engine:
         url = f"sqlite:///{db_path}"
         eng = create_engine(
             url,
-            connect_args={"check_same_thread": False},
+            connect_args={"check_same_thread": False, "timeout": 30.0},
             echo=False
         )
         _ENGINES[env] = eng
@@ -67,6 +67,12 @@ def _run_migrations(eng: Engine):
         "ALTER TABLE step_runs ADD COLUMN tabular_data_json TEXT DEFAULT NULL",
     ]
     with eng.connect() as conn:
+        try:
+            conn.execute(text("PRAGMA journal_mode=WAL;"))
+            conn.execute(text("PRAGMA busy_timeout=5000;"))
+            conn.commit()
+        except Exception:
+            pass
         for sql in migrations:
             try:
                 conn.execute(text(sql))
