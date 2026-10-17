@@ -302,7 +302,10 @@ export const RunHistoryTable: React.FC<RunHistoryTableProps> = ({
                     </td>
 
                     <td className="py-3 px-4 text-slate-300 font-mono text-[11px]">
-                      <span className="px-2 py-0.5 rounded bg-slate-800/80 border border-slate-700/60 text-slate-300">
+                      <span
+                        className="inline-block px-2 py-0.5 rounded bg-slate-800/80 border border-slate-700/60 text-slate-300 max-w-[170px] truncate align-middle whitespace-nowrap"
+                        title={r.triggered_by || 'anonymous'}
+                      >
                         {r.triggered_by || 'anonymous'}
                       </span>
                     </td>
@@ -335,7 +338,11 @@ export const RunHistoryTable: React.FC<RunHistoryTableProps> = ({
                     </td>
 
                     <td className="py-3 px-4 text-center font-mono text-slate-300">
-                      {r.successful_steps}/{r.total_steps}
+                      {(isRunning || isWaitingApproval) && r.total_steps === 0 ? (
+                        <span className="text-slate-500">—</span>
+                      ) : (
+                        `${r.successful_steps}/${r.total_steps}`
+                      )}
                     </td>
 
                     <td className="py-3 px-4 text-right font-mono text-slate-400">

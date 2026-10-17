@@ -165,6 +165,19 @@ def generate_run_html_report(run_data: Dict[str, Any], env: str = "dev") -> str:
             f'{label_html}'
             f'</div>'
         )
+
+    # If steps finished significantly faster than total run time, show unallocated framework time
+    allocated_pct = sum(max(1.5, min(100.0, ((s.get("time_taken") or s.get("execution_time") or 0.0) / base_time) * 100)) for s in steps) if total_step_time > 0 else 100.0
+    remaining_pct = max(0.0, 100.0 - allocated_pct)
+    if remaining_pct >= 5.0 and total_time > total_step_time:
+        overhead_time = max(0.0, total_time - total_step_time)
+        overhead_tip = f"Framework & DB Commit: {_format_time(overhead_time)} ({remaining_pct:.1f}%)"
+        overhead_label = "<span>Framework / DB</span>" if remaining_pct >= 10.0 else ""
+        timeline_segments_html.append(
+            f'<div class="timeline-bar-segment" style="width: {remaining_pct:.2f}%; background-color: #334155; opacity: 0.85;" title="{_escape(overhead_tip)}">'
+            f'{overhead_label}'
+            f'</div>'
+        )
     timeline_bar_html = "".join(timeline_segments_html)
 
     # -------------------------------------------------------------
