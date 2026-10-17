@@ -688,6 +688,25 @@ class WorkflowRunner:
             else:
                 val = step_context.get(p_name, None)
 
+            # Auto-coerce types if string value was passed via CLI/REST but annotation expects int, float, bool
+            if param.annotation is not inspect.Parameter.empty and val is not None:
+                ann = param.annotation
+                if ann is int or ann == "int":
+                    try:
+                        val = int(val)
+                    except (ValueError, TypeError):
+                        pass
+                elif ann is float or ann == "float":
+                    try:
+                        val = float(val)
+                    except (ValueError, TypeError):
+                        pass
+                elif ann is bool or ann == "bool":
+                    if isinstance(val, str):
+                        val = val.lower() in ("true", "1", "yes", "y", "t")
+                    else:
+                        val = bool(val)
+
             if param.kind == inspect.Parameter.POSITIONAL_ONLY:
                 args.append(val)
             else:

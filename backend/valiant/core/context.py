@@ -213,7 +213,7 @@ class WorkflowContext:
                 k in self._sensitive_keys or
                 any(secret_word in k.lower() for secret_word in ["password", "secret", "token", "api_key", "auth_token"])
             )
-            if mask_secrets and is_secret and v:
+            if mask_secrets and is_secret and v is not None:
                 result[k] = "********"
             else:
                 try:
