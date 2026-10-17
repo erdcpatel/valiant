@@ -149,7 +149,7 @@ ValiantFlow scans the following locations automatically:
 1. `$VALIANT_WORKFLOWS_DIR` (if set)
 2. `./workflows/*.py` (recommended project standard)
 3. `./backend/workflows/*.py` (full-stack application standard)
-4. Current directory `./*.py`
+4. Specific directory or `.py` file provided via `--dir` flag (e.g. `valiant list --dir ./my_flow.py`)
 
 In the Web UI (`http://localhost:8000/`), your custom workflows appear in the catalog. You can toggle **"Hide Default Templates"** to focus purely on your custom automations!
 
