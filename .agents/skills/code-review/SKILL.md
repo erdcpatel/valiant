@@ -19,6 +19,7 @@ This skill defines the rigorous criteria and checklist an AI agent or human revi
 - **Direct Database Access from Workflows**: Workflows writing directly to SQLAlchemy models or raw SQL queries rather than passing outputs through `WorkflowContext` (`self.success(data=...)`).
 - **Cross-Environment Database Bleed**: Any persistence or query logic in `backend/valiant/db/` that bypasses the `env` parameter or writes to a single shared `valiant.db` instead of `valiant_{env}.db`.
 - **External CDN or PDF Binaries in Reports**: Introducing external CDN scripts/fonts or third-party PDF binaries (wkhtmltopdf/weasyprint) into execution reports. HTML reports must remain 100% self-contained with browser-native `@media print` styling.
+- **Direct Pushes to Main**: Bypassing PR review with direct pushes to `main`. All go-forward code changes must be submitted via feature branch Pull Request (`gh pr create`).
 
 ---
 
