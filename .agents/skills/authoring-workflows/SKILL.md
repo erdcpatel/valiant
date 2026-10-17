@@ -16,8 +16,9 @@ Every Valiant workflow is a Python class inheriting from `valiant.Workflow` and 
 ```python
 """
 Order Fulfillment Workflow
-"""
-from backend.valiant import Workflow, step, workflow, InputField, InputType
+# When pip installed: from valiantflow import Workflow, step, workflow, InputField, InputType
+# Or: from valiant import ... / from backend.valiant import ...
+from valiantflow import Workflow, step, workflow, InputField, InputType
 import polars as pl
 
 

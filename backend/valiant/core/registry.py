@@ -84,6 +84,7 @@ class WorkflowRegistry:
                 str(project_root / "workflows"),
                 str(Path.cwd() / "backend" / "workflows"),
                 str(Path.cwd() / "workflows"),
+                str(Path.cwd()),
             ]
             env_dir = os.environ.get("VALIANT_WORKFLOWS_DIR")
             if env_dir:
