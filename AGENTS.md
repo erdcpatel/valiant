@@ -196,3 +196,4 @@ Every feature addition or refactoring must strictly satisfy this checklist:
 6. **NEVER bypass production guardrails**: Any trigger targeting the `prod` environment must enforce explicit operator authorization.
 7. **NEVER commit temporary database files (`valiant_*.db`), logs, or node_modules** to git.
 8. **NEVER use Pandas**: Use **Polars** exclusively for all tabular transformations, SQL result processing, and analytics workflows.
+9. **NEVER push directly to `main`**: All go-forward code changes, refactoring, and feature additions MUST be created on a dedicated feature/bugfix branch and submitted via Pull Request (`gh pr create`). Direct pushes to `main` are strictly forbidden.
