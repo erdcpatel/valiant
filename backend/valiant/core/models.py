@@ -128,6 +128,17 @@ class StepLineage(BaseModel):
     downstream_targets: Dict[str, List[str]] = Field(default_factory=dict)  # context_key -> [consumer step names]
 
 
+class CommandResult(BaseModel):
+    """Result of an executed shell or subprocess command."""
+    command: List[str]
+    exit_code: int
+    stdout: str
+    stderr: str
+    duration: float
+    success: bool
+    pid: Optional[int] = None
+
+
 class StepResult(BaseModel):
     """Result of an executed or evaluated step."""
     name: str

@@ -12,7 +12,15 @@ Claude Code must use [`AGENTS.md`](./AGENTS.md) as its primary context and maste
 - **Primary Commands**:
   - Run Server: `valiant serve --host 0.0.0.0 --port 8000`
   - CLI Run: `valiant run <workflow_name> --env dev`
+  - CLI Logs: `valiant logs <run_id> --env dev --follow`
+  - Standalone Report: `valiant report <run_id> --env dev --output report.html --open` (Multi-tab self-contained HTML with dark/light mode, tabular search/sort, governance trail, and raw logs)
   - Tests: `pytest`
   - Frontend Build: `cd frontend && npm run build`
   - Frontend Lint: `cd frontend && npm run lint`
-- **Safety**: Review the **Safety & Boundaries ("Never Do" List)** in [`AGENTS.md`](./AGENTS.md) before performing modifications.
+  - Scaffold Workflow: `valiant new <name> --style compact` (or `--style functional`)
+- **Workflow Authoring**: Dual authoring modes supported:
+  - **Modern Compact Class**: Type-annotated class attributes (Pydantic style), auto-inferred inputs, auto step ordering, and parameter injection.
+  - **Functional Micro-Workflow**: Fluent syntax `wf = workflow("name")`, `@wf.step`, `@wf.approval` with auto result wrapping (Polars DataFrames, dicts, strings, booleans, None).
+- **Desktop Automation**: Uses `context.exec` (streaming subprocess with Windows `shutil.which` support), `context.poll_until` (non-blocking async polling), per-run `.log` files at `.valiant/logs/{env}/{run_id}.log`, and built-in DevOps tools (`GitHelper`, `MavenHelper`, `DockerHelper`).
+- **Reports & Governance**: Self-contained 5-tab HTML reports (`Overview`, `Step Breakdown`, `Tabular Datasets`, `Governance Trail`, `Logs & Context`) with zero external CDNs, theme toggle, and print-to-PDF.
+- **Safety & QA**: Adhere strictly to the **Mandatory Testing & Quality Assurance Checklist** and **Safety & Boundaries ("Never Do" List)** in [`AGENTS.md`](./AGENTS.md). All PRs/features require 100% test pass rate, clean builds, zero Pandas, and visual snapshot reviews.

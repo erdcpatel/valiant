@@ -60,7 +60,28 @@ This skill defines the rigorous criteria and checklist an AI agent or human revi
 
 ---
 
-## 5. Review Output Format
+## 5. Desktop Local DevOps & CLI Subprocess Standards
+
+- [ ] **Windows Cross-Platform Pathing & Binaries**: Are CLI binaries resolved through `shutil.which` before execution? (e.g. `mvn` -> `mvn.cmd` on Windows).
+- [ ] **Responsive Process Group Termination**: Are child subprocesses started in separate process groups and killed cleanly via `taskkill /F /T` on Windows or `os.killpg` on POSIX?
+- [ ] **Non-Blocking Polling**: Does polling use async `context.poll_until` with reasonable interval and timeout, rather than thread-blocking `time.sleep`?
+- [ ] **Untruncated Run Logging**: Are all stdout/stderr streams written cleanly to `.valiant/logs/{env}/{run_id}.log` via `RunLogManager`?
+- [ ] **Self-Contained Multi-Tab HTML Reports**: Does the standalone report generator in `backend/valiant/core/report.py` produce a 100% self-contained document with 5 tabs, dark/light mode toggle, client-side tabular search/sort, governance verification seal, raw logs, secret masking, and `@media print` expansion?
+
+---
+
+## 6. Mandatory Testing & Quality Assurance Checklist
+
+Prior to submitting or pushing any feature, the following validation gates MUST be completed:
+1. **Full Pytest Suite**: Execute `pytest tests/` and verify 100% passing tests (zero failures/errors).
+2. **TypeScript & Frontend Quality**: Execute `cd frontend && npm run build` (zero type errors) and `npm run lint` (zero warnings/errors).
+3. **Visual UI/UX Inspection**: Capture visual browser snapshots of all modified or introduced UI pages/drawers/modals to verify styling, alignment, and interactive behavior.
+4. **Dependency Review**: Confirm zero unwanted dependencies introduced (strictly Polars, zero Pandas).
+5. **Cross-Platform Compatibility**: Validate that file paths use `pathlib.Path` or `Path.as_posix()` and UTF-8 encoding is explicitly specified.
+
+---
+
+## 7. Review Output Format
 
 When generating a code review report, structure the response using this template:
 

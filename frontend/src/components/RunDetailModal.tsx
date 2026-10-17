@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { WorkflowRun } from '../types';
 import { StepTimeline } from './StepTimeline';
 import { WorkflowDAG } from './WorkflowDAG';
-import { getRunReportUrl } from '../api';
+import { getRunReportUrl, getRunLogUrl } from '../api';
 import {
   X,
   Copy,
@@ -16,6 +16,7 @@ import {
   Sparkles,
   ArrowRightLeft,
   FileText,
+  Terminal,
 } from 'lucide-react';
 
 interface RunDetailModalProps {
@@ -152,6 +153,28 @@ export const RunDetailModal: React.FC<RunDetailModalProps> = ({
                 download={`valiant-report-${run.id}-${run.environment || 'dev'}.html`}
                 className="inline-flex items-center px-2 py-1.5 text-cyan-300 hover:bg-cyan-900/60 border-l border-cyan-800/60 transition-colors"
                 title="Download standalone HTML report file directly to disk"
+              >
+                <Download className="h-3 w-3" />
+              </a>
+            </div>
+
+            {/* Dedicated Per-Run Raw Log File (.log) */}
+            <div className="inline-flex rounded-lg border border-slate-700 bg-slate-900 overflow-hidden text-xs">
+              <a
+                href={getRunLogUrl(run.id, false, run.environment)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center space-x-1 px-2.5 py-1.5 font-semibold text-slate-300 hover:bg-slate-800 transition-colors"
+                title="View full raw execution log file in a new tab"
+              >
+                <Terminal className="h-3.5 w-3.5 text-emerald-400" />
+                <span>Log</span>
+              </a>
+              <a
+                href={getRunLogUrl(run.id, true, run.environment)}
+                download={`valiant-run-${run.id}-${run.environment || 'dev'}.log`}
+                className="inline-flex items-center px-2 py-1.5 text-slate-300 hover:bg-slate-800 border-l border-slate-700 transition-colors"
+                title="Download full raw execution log (.log) file"
               >
                 <Download className="h-3 w-3" />
               </a>

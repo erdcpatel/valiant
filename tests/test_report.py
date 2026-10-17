@@ -187,3 +187,97 @@ def test_api_html_report_endpoint():
     # 3. 404 for non-existent run
     res_404 = client.get("/api/runs/nonexistent_run_xyz/report/html", headers={"X-Valiant-Env": "dev"})
     assert res_404.status_code == 404
+
+
+def test_generate_run_html_report_multitab_features():
+    run_data = {
+        "id": "run_multitab_comprehensive_123",
+        "workflow_name": "Full Multi-Tab Demo",
+        "status": "completed",
+        "success": True,
+        "total_steps": 2,
+        "total_time": 10.5,
+        "started_at": "2026-10-17T10:00:00",
+        "completed_at": "2026-10-17T10:00:10",
+        "triggered_by": "qa_lead",
+        "inputs": {"db_password": "supersecretpassword", "batch_size": 100},
+        "context": {"api_key": "secret-12345", "processed_records": 100},
+        "steps": [
+            {
+                "name": "Step 1: Ingest & Authorize",
+                "status": "success",
+                "execution_time": 2.5,
+                "requires_approval": True,
+                "approved_by": "sec_officer",
+                "approval_notes": "Security approved for compliance run",
+                "approved_at": "2026-10-17T10:00:02",
+                "context_delta": {
+                    "added": {"ingest_status": "done"},
+                    "modified": {"batch_size": 100},
+                    "removed": []
+                },
+                "logs": ["Starting ingestion job...", "Connected to data store.", "Ingestion completed."],
+            },
+            {
+                "name": "Step 2: Polars Analytics",
+                "status": "success",
+                "execution_time": 8.0,
+                "tabular_data": {
+                    "total_rows": 2,
+                    "total_cols": 2,
+                    "columns": [
+                        {"name": "metric_name", "type": "str"},
+                        {"name": "value", "type": "f64"},
+                    ],
+                    "preview_rows": [
+                        {"metric_name": "accuracy", "value": 0.985},
+                        {"metric_name": "latency_ms", "value": 14.2},
+                    ]
+                }
+            }
+        ]
+    }
+
+    html = generate_run_html_report(run_data, env="uat")
+
+    # 1. Multi-Tab Navigation Verification
+    assert 'data-tab="tab-overview"' in html
+    assert 'data-tab="tab-steps"' in html
+    assert 'data-tab="tab-tabular"' in html
+    assert 'data-tab="tab-governance"' in html
+    assert 'data-tab="tab-logs"' in html
+    assert "switchTab('tab-overview')" in html
+
+    # 2. Executive Overview Tab: Timeline Bar & Masked Inputs
+    assert "timeline-bar-segment" in html
+    assert "supersecretpassword" not in html
+    assert "********" in html
+    assert "batch_size" in html
+
+    # 3. Steps Breakdown: Filter pills, Accordions, Context Delta
+    assert "filterSteps" in html
+    assert "toggleAllSteps" in html
+    assert "Context Mutations" in html
+    assert "ingest_status" in html
+
+    # 4. Tabular Datasets: Search, Sort, CSV Copy
+    assert "filterDataset" in html
+    assert "sortTable" in html
+    assert "copyTableAsCsv" in html
+    assert "accuracy" in html
+    assert "latency_ms" in html
+
+    # 5. Governance Audit Trail: Verified Seal & Justification
+    assert "VERIFIED GOVERNANCE AUDIT TRAIL" in html
+    assert "sec_officer" in html
+    assert "Security approved for compliance run" in html
+
+    # 6. Raw Logs & Context: Secret masking & Monospace Terminal
+    assert "secret-12345" not in html
+    assert "terminal-viewer" in html
+    assert "raw-log-content" in html
+
+    # 7. Light / Dark Mode Toggle
+    assert "toggleTheme()" in html
+    assert "theme-light" in html
+

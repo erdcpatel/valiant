@@ -35,7 +35,7 @@ class WorkflowRegistry:
 
         result = {}
         for name, cls in self._workflows.items():
-            instance = cls()
+            instance = cls() if isinstance(cls, type) else cls
             steps = instance.get_steps()
             inputs = instance.inputs()
             result[name] = {
@@ -110,6 +110,13 @@ class WorkflowRegistry:
                             if issubclass(obj, Workflow) and obj is not Workflow:
                                 wf_id = getattr(obj, "workflow_id", obj.__name__)
                                 self._workflows[wf_id] = obj
+
+                        # Also discover top-level functional Workflow instances
+                        for _, obj in inspect.getmembers(mod):
+                            if isinstance(obj, Workflow) and not isinstance(obj, type):
+                                wf_id = getattr(obj, "workflow_id", getattr(obj, "name", None))
+                                if wf_id:
+                                    self._workflows[wf_id] = obj
                 except Exception as e:
                     print(f"[Registry Discovery Error] {file_path.name}: {e}")
 
@@ -117,6 +124,15 @@ class WorkflowRegistry:
         for k, v in get_global_registry().items():
             if k not in self._workflows:
                 self._workflows[k] = v
+
+    def get_instance(self, name: str) -> Optional[Workflow]:
+        """Retrieve a ready-to-run instance of a workflow by name."""
+        wf = self.get(name)
+        if wf is None:
+            return None
+        if isinstance(wf, type):
+            return wf()
+        return wf
 
 
 # Singleton instance

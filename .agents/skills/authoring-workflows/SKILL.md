@@ -116,7 +116,86 @@ class OrderFulfillmentWorkflow(Workflow):
 
 ---
 
-## 2. Core SDK Decorators & Primitives
+## 2. Modern Compact & Functional Workflow Authoring
+
+Valiant provides two ultra-compact authoring paradigms that reduce boilerplate by **70–85%**:
+
+### 2.1 Functional Micro-Workflows (Minimal Code)
+Best for scripts, DevOps pipelines, and lightweight automations where defining a class is unnecessary ceremony:
+```python
+from backend.valiant import workflow
+import polars as pl
+
+wf = workflow("telemetry_pipeline", description="Process and verify system telemetry")
+
+# Declare parameters (or let them auto-infer from step arguments)
+wf.input("batch_id", type=str, default="BATCH-01")
+wf.input("count", type=int, default=50)
+
+@wf.step("Ingest Records")
+def ingest(batch_id: str, count: int):
+    # Parameters are auto-injected from inputs! Return strings directly.
+    return f"Ingested {count} records for batch {batch_id}"
+
+@wf.approval("Operator Review", prompt="Review telemetry before publishing?")
+def signoff():
+    pass
+
+@wf.step("Generate Polars Report")
+def report(count: int = 50):
+    # Returning a Polars DataFrame automatically wraps it into a dual-tier table & Parquet artifact!
+    return pl.DataFrame({
+        "device_id": [f"DEV-{i}" for i in range(count)],
+        "status": ["healthy" if i % 4 != 0 else "degraded" for i in range(count)],
+    })
+```
+
+### 2.2 Modern Compact Classes (Pydantic / Dataclass Style)
+Best for structured, reusable pipelines. Eliminate `def inputs(self)` completely by declaring type-annotated class attributes:
+```python
+from typing import Literal
+from backend.valiant import Workflow, step, workflow
+
+@workflow(name="customer_onboarding", description="Onboard new customer and setup workspace")
+class CustomerOnboardingWorkflow(Workflow):
+    name = "Customer Onboarding"
+    tags = ["customers", "onboarding"]
+
+    # Type-annotated class attributes auto-generate UI dynamic forms & validation schemas:
+    customer_name: str
+    admin_email: str
+    tier: Literal["standard", "enterprise"] = "standard"
+    send_welcome: bool = True
+
+    @step("Validate Customer")
+    def validate_customer(self, customer_name: str):
+        # Auto-injected argument
+        return f"Customer '{customer_name}' verified"
+
+    @step("Create Workspace")
+    def create_workspace(self, ctx):
+        ctx["workspace_id"] = "ws_84920"
+        return "Workspace provisioned on AWS"
+
+    @step("Send Welcome Email", condition="send_welcome")
+    def send_welcome_email(self, admin_email: str):
+        return f"Welcome kit sent to {admin_email}"
+```
+
+### 2.3 Automatic Primitives & Conveniences
+- **Direct Parameter Injection**: Step functions declare required arguments directly (`def step_fn(batch_id: str, ctx=None):`). The runner resolves them from workflow inputs and execution context.
+- **Auto Step Sequencing**: When `order` is omitted in `@step(...)`, steps are automatically ordered based on their declaration sequence (10, 20, 30...).
+- **Automatic Result Wrapping**:
+  - `polars.DataFrame` ➔ Auto-captures dual-tier preview + memory-mapped Parquet artifact.
+  - `str` ➔ `StepResult(success=True, message=str)`.
+  - `dict` ➔ `StepResult(success=True, data=dict)`.
+  - `bool` ➔ `StepResult(success=bool)`.
+  - `None` ➔ `StepResult(success=True, message="Completed")`.
+  - Unhandled exceptions ➔ `StepResult(success=False, error=str)`.
+
+---
+
+## 3. Core SDK Decorators & Primitives
 
 ### `@workflow(name="...", description="...")`
 - Declares the unique workflow identifier in the registry.
@@ -196,11 +275,17 @@ The registry automatically searches for workflow `.py` files in:
 
 ### Scaffolding a New Workflow:
 ```bash
-# Creates backend/workflows/order_sync.py
-valiant new order_sync
+# Creates a modern compact workflow (type-annotated, minimal boilerplate)
+valiant new order_sync --style compact
+
+# Creates a functional micro-workflow (script-style, ultra-minimal)
+valiant new quick_deploy --style functional
+
+# Creates a legacy full-class workflow
+valiant new audit_pipeline --style standard
 
 # Creates a workflow in a custom directory
-valiant new customer_audit --dir ./custom_workflows
+valiant new customer_audit --dir ./custom_workflows --style compact
 ```
 
 ### Running and Testing via CLI:
@@ -214,18 +299,91 @@ valiant run order_fulfillment --env dev --set batch_id="BATCH-009"
 # Inspect execution history
 valiant runs --env dev
 
-# Generate standalone HTML execution report
+# Generate standalone multi-tab HTML execution report
 valiant report <run_id> --env dev --output report.html --open
+```
+
+### Standalone Multi-Tab HTML Reports
+Valiant generates 100% self-contained execution reports (zero external CDNs or remote dependencies) containing 5 interactive tabs:
+- 📊 **Executive Overview**: KPI metrics cards, duration percentage timeline distribution bar, masked input parameters.
+- ⚡ **Step Execution Breakdown**: Status filter pills (`All`, `Succeeded`, `Failed`, `Approvals`, `Tabular`), Expand/Collapse controls, collapsible step accordions, duration, failure diagnostics, context mutations (`+ added`, `~ modified`), and step logs.
+- 📈 **Polars Tabular Datasets**: Multi-dataset switcher, client-side real-time text search, clickable column sorting, and CSV clipboard copy.
+- 🛡️ **Governance Audit Trail**: Official compliance seal banner, manual authorization gate metadata, operator justifications.
+- 📜 **Raw Execution Logs & Final Context**: Embedded monospace terminal viewer for `.valiant/logs/{env}/{run_id}.log` and formatted JSON context viewer with automatic secret masking (`********`).
+- **Interactive Controls**: Dark/Light mode theme toggle switch, HTML file download, and native print-to-PDF (`@media print` automatically unhides all tabs and expands all accordions for full physical PDF export).
+- Accessible via CLI (`valiant report <run_id>`), REST API (`GET /api/runs/{run_id}/report/html`), and 1-click split actions throughout the UI.
+
+
+---
+
+## 6. Desktop & Local DevOps Automation
+
+Valiant provides first-class primitives for running local desktop DevOps workflows (e.g. Maven builds, Git branch creation/push, Docker container packaging, and deployment polling):
+
+### Subprocess Execution with `context.exec`
+Execute local CLI binaries with real-time WebSocket console streaming and automatic write to the run's dedicated log file:
+```python
+res = await context.exec(
+    ["mvn", "clean", "install", "-DskipTests"],
+    cwd=repo_path,
+    env={"JAVA_HOME": "/usr/lib/jvm/default"}
+)
+if not res.ok:
+    return self.failure(f"Maven build failed with exit code {res.returncode}")
+```
+- **Cross-Platform**: Automatically resolves binary paths via `shutil.which` (e.g. `mvn` -> `mvn.cmd` on Windows).
+- **Process Group Tracking**: Tracked in `_active_processes` registry. Immediate, responsive abort via `os.killpg` on POSIX and `taskkill /F /T` on Windows.
+
+### Non-Blocking Deployment Polling with `context.poll_until`
+Wait for asynchronous deployment endpoints or external API states without blocking the worker thread:
+```python
+async def check_version():
+    status = await fetch_service_health()
+    return status.get("version") == target_version
+
+deployed = await context.poll_until(check_version, timeout_secs=300, interval_secs=5)
+if not deployed:
+    return self.failure("Deployment timed out after 5 minutes")
+```
+
+### Dedicated Per-Run Log Files
+Every workflow run generates an isolated raw log on disk:
+- Stored at `.valiant/logs/{env}/{run_id}.log`.
+- Inspected in CLI via `valiant logs <run_id> --env dev --follow`.
+- Downloaded or viewed via 1-click Raw Log split-button in the Web UI.
+
+### Built-in DevOps Helpers
+Valiant includes battle-tested helper classes:
+```python
+from backend.valiant import GitHelper, MavenHelper, DockerHelper
+
+# Git operations
+git = GitHelper(repo_dir)
+git.create_and_checkout_branch("feature/bom-5.0.0")
+git.commit_and_push(commit_msg="JIRA-1234: Upgrade BOM to 5.0.0")
+
+# Maven POM operations
+mvn = MavenHelper(repo_dir)
+current_ver = mvn.get_parent_bom_version()
+mvn.update_parent_bom_version(new_version="5.0.0")
+
+# Dockerfile operations
+docker = DockerHelper(repo_dir)
+curr_image = docker.get_base_image()
+docker.update_base_image("eclipse-temurin:21-jre-alpine")
 ```
 
 ---
 
-## 6. How Default Workflows Serve Clients
+## 7. How Default Workflows Serve Clients
 
 When Valiant is installed or cloned, the default workflows in `backend/workflows/` serve as out-of-the-box working references:
+- **`compact_micro_workflow.py`**: Reference for ultra-minimal functional micro-workflows (`wf = workflow(...)`), direct parameter injection, auto step sequencing, and Polars DataFrame auto-wrapping.
+- **`bom_test_automation.py`**: Reference for multi-repo Git/Maven/Docker upgrade automation, desktop `context.exec`, deployment polling, dual approvals, and `mock_mode` testing.
 - **`sql_query_analytics.py`**: Reference for Polars DataFrame integration, SQL querying, and Parquet caching.
 - **`infrastructure_deployment.py`**: Reference for Human-in-the-Loop approval breakpoints and governance trails.
 - **`api_failure_demo.py`**: Reference for error handling, diagnostics, and Smart Resumption.
 - **`demo.py`**: Reference for inputs, conditional branches, and metrics.
 
 Clients can run these default workflows immediately to verify platform health or duplicate them to build customized production automations.
+

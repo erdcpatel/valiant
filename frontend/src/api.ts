@@ -547,3 +547,11 @@ export function getRunReportUrl(runId: string, download: boolean = false, env?: 
   return url.toString();
 }
 
+export function getRunLogUrl(runId: string, download: boolean = false, env?: string): string {
+  const targetEnv = env || _activeEnvironment;
+  const url = new URL(`${window.location.origin}${API_BASE}/runs/${runId}/logs/file`);
+  if (download) url.searchParams.set('download', 'true');
+  if (targetEnv) url.searchParams.set('env', targetEnv);
+  return url.toString();
+}
+

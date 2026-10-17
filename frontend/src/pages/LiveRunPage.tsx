@@ -2,10 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { WorkflowRun, StepResult, RunEvent } from '../types';
 import { StepTimeline } from '../components/StepTimeline';
 import { WorkflowDAG } from '../components/WorkflowDAG';
-import { subscribeToRunEvents, getRun, cancelRun, resumeRun, approveStep, rejectStep, getRunReportUrl } from '../api';
+import { subscribeToRunEvents, getRun, cancelRun, resumeRun, approveStep, rejectStep, getRunReportUrl, getRunLogUrl } from '../api';
 import {
   RotateCw,
-  CheckCircle2,
   XCircle,
   StopCircle,
   Terminal,
@@ -268,6 +267,14 @@ export const LiveRunPage: React.FC<LiveRunPageProps> = ({ runId, onBackToWorkflo
             steps: updated,
           };
         });
+      } else if (event.event_type === 'step_log') {
+        const line = event.data?.line || '';
+        if (line) {
+          setLogs((prev) => {
+            const updated = [...prev, line];
+            return updated.length > 2000 ? updated.slice(-2000) : updated;
+          });
+        }
       } else if (event.event_type === 'run_cancelled') {
         setActiveStep(null);
         setLogs((prev) => [...prev, `[${now}] ⚠ Workflow cancelled by operator`]);
@@ -294,6 +301,7 @@ export const LiveRunPage: React.FC<LiveRunPageProps> = ({ runId, onBackToWorkflo
     try {
       await cancelRun(runId);
       setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ⚠ Cancellation requested by user`]);
+      setRun((prev) => (prev ? { ...prev, status: 'cancelled', success: false } : null));
     } catch (e) {
       console.error(e);
     } finally {
@@ -492,6 +500,28 @@ export const LiveRunPage: React.FC<LiveRunPageProps> = ({ runId, onBackToWorkflo
               download={`valiant-report-${runId}-${run?.environment || 'dev'}.html`}
               className="inline-flex items-center px-2.5 py-2 text-xs font-semibold text-cyan-300 hover:bg-cyan-900/60 border-l border-cyan-800/60 transition-colors"
               title="Download standalone HTML report file directly to disk"
+            >
+              <Download className="h-3.5 w-3.5" />
+            </a>
+          </div>
+
+          {/* Dedicated Per-Run Raw Log File (.log) */}
+          <div className="inline-flex rounded-xl border border-slate-700 bg-slate-900 shadow-sm overflow-hidden">
+            <a
+              href={getRunLogUrl(runId, false, run?.environment)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center space-x-1.5 px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800 transition-colors"
+              title="View full raw execution log file in a new tab"
+            >
+              <Terminal className="h-4 w-4 text-emerald-400" />
+              <span>Raw Log</span>
+            </a>
+            <a
+              href={getRunLogUrl(runId, true, run?.environment)}
+              download={`valiant-run-${runId}-${run?.environment || 'dev'}.log`}
+              className="inline-flex items-center px-2.5 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800 border-l border-slate-700 transition-colors"
+              title="Download full raw execution log (.log) file"
             >
               <Download className="h-3.5 w-3.5" />
             </a>

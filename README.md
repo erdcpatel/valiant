@@ -14,11 +14,14 @@ Valiant is a **developer-first Python Workflow Automation & Orchestration Platfo
 - **📊 Side-by-Side Run Comparator**: Regression diffing engine comparing baseline vs target runs across environments with latency drift, step regression matrices, and context diffs.
 - **⏰ Scheduled Crons & Inbound Webhooks**: In-process `AsyncScheduler` background engine supporting 5-field cron cadences (`croniter`) and authenticated HTTP inbound webhooks (`X-Valiant-Secret`) with parameter mapping.
 - **🛡️ Human-in-the-Loop Breakpoints**: Pause sensitive infrastructure runs before destructive operations, awaiting authorized approval or rejection with audit justification.
+- **🖥️ Desktop Local DevOps Automation**: Native async subprocess execution engine via `context.exec(...)` with live WebSocket console streaming, binary auto-resolution (`shutil.which` for Windows `.cmd`/`.bat`), responsive process tree cancellation (`taskkill /F /T` on Windows, `os.killpg` on POSIX), and async non-blocking deployment polling via `context.poll_until(...)`.
+- **📁 Dedicated Per-Run File Logging**: Isolated raw untruncated log files written directly to `.valiant/logs/{env}/{run_id}.log`, viewable/streamable via CLI (`valiant logs <run_id> --follow`) and 1-click UI Raw Log actions.
+- **🛠️ Built-in DevOps Tooling Suite**: Out-of-the-box helper utilities for multi-repo branch management (`GitHelper`), POM versioning (`MavenHelper`), and base image updates (`DockerHelper`).
 - **📊 First-Class Tabular Data (Polars Exclusively)**: Native support for SQL query results, high-throughput datasets, and analytics transformations powered strictly by Polars (zero Pandas). Dual-tier architecture (compact UI preview + zero-copy Parquet artifact caching), instant (<5ms) lazy in-drawer search/sort/pagination, and 1-click downloads (`CSV`, `Parquet`, `JSON`).
-- **📑 Standalone HTML Execution & Audit Reports**: Single-click offline-ready interactive reports with zero external dependencies, embedded CSS/SVGs, browser-native print-to-PDF (`@media print`), KPI summaries, step timelines, governance approval trails, and Polars tabular data embeds.
+- **📑 Standalone Multi-Tab HTML Execution & Audit Reports**: Single-click offline-ready interactive reports with zero external dependencies, embedded CSS/SVGs, 5 tabs (Executive Overview with duration distribution bar, Step Breakdown with Expanders and filter pills, Polars Tabular Datasets with live client-side search/sort/CSV copy, Governance Audit Trail with verification seal, and Raw Logs Monospace Terminal & Masked Context JSON), Dark/Light theme switch, and browser-native print-to-PDF (`@media print`).
 - **🔴 Real-Time Live Streaming**: Watch steps execute in real-time over WebSockets with live progress bars, spinners, and log consoles.
 - **🔒 Sensitive Secret Masking**: Passwords, API tokens, and credentials are automatically redacted in DB history and API responses.
-- **💻 Rich CLI Tool**: Run, list, inspect, report, and scaffold workflows directly from the terminal (`valiant run`, `valiant list`, `valiant runs`, `valiant report`, `valiant new`).
+- **💻 Rich CLI Tool**: Run, list, inspect, report, stream logs, and scaffold workflows directly from the terminal (`valiant run`, `valiant list`, `valiant runs`, `valiant logs`, `valiant report`, `valiant new`).
 
 ---
 
@@ -83,16 +86,19 @@ python run.py serve
 # 1. List all discovered workflows
 valiant list
 
-# 2. Run a workflow with parameters
-valiant run demo --set user_name="Alice" --set max_items=50
+# 2. Run a workflow with parameters in a specific environment
+valiant run demo --env dev --set user_name="Alice" --set max_items=50
 
 # 3. View persistent run history from database
-valiant runs --limit 10
+valiant runs --env dev --limit 10
 
-# 4. Generate standalone self-contained HTML audit report
+# 4. Stream or tail dedicated per-run execution logs
+valiant logs <run_id> --env dev --follow
+
+# 5. Generate standalone self-contained HTML audit report
 valiant report <run_id> --env dev --output report.html --open
 
-# 5. Scaffold a new workflow file instantly
+# 6. Scaffold a new workflow file instantly
 valiant new my_automation
 ```
 
@@ -100,40 +106,62 @@ valiant new my_automation
 
 ## 📝 Authoring a Workflow
 
+Valiant supports both **Functional Micro-Workflows** (for scripts and quick automations) and **Modern Compact Classes** (for structured pipelines):
+
+### Option A: Functional Micro-Workflow (Minimal Code)
 ```python
-from backend.valiant import Workflow, step, workflow, InputField, InputType
+from backend.valiant import workflow
+import polars as pl
+
+wf = workflow("telemetry_pipeline", description="Process and verify system telemetry")
+
+@wf.step("Ingest Records")
+def ingest(batch_id: str = "BATCH-01", count: int = 50):
+    # Parameters auto-injected from inputs! Return strings, dicts, or DataFrames directly.
+    return f"Ingested {count} records for batch {batch_id}"
+
+@wf.approval("Operator Gate", prompt="Review telemetry before publishing?")
+def signoff():
+    pass
+
+@wf.step("Generate Polars Report")
+def report(count: int = 50):
+    # Polars DataFrames are auto-wrapped into dual-tier interactive tables & Parquet artifacts!
+    return pl.DataFrame({
+        "device_id": [f"DEV-{i}" for i in range(count)],
+        "status": ["healthy" if i % 4 != 0 else "degraded" for i in range(count)],
+    })
+```
+
+### Option B: Modern Compact Class (Zero InputField Ceremony)
+```python
+from typing import Literal
+from backend.valiant import Workflow, step, workflow
 
 @workflow(name="customer_onboarding", description="Onboard new customer and setup workspace")
 class CustomerOnboardingWorkflow(Workflow):
     name = "Customer Onboarding"
-    description = "Provision customer accounts and workspaces"
-    version = "1.0.0"
     tags = ["customers", "onboarding"]
 
-    def inputs(self):
-        return [
-            InputField("customer_name", type=InputType.TEXT, required=True),
-            InputField("admin_email", type=InputType.EMAIL, required=True),
-            InputField("tier", type=InputType.SELECT, options=["standard", "enterprise"], default="standard"),
-            InputField("send_welcome", type=InputType.CHECKBOX, default=True)
-        ]
+    # Type-annotated class attributes automatically generate UI forms and validation schemas:
+    customer_name: str
+    admin_email: str
+    tier: Literal["standard", "enterprise"] = "standard"
+    send_welcome: bool = True
 
-    @step("Validate Customer", order=1, tags=["validation"])
-    def validate_customer(self, context):
-        name = context.get("customer_name")
-        res = self.success(f"Customer '{name}' verified")
-        res.add_metric("name_length", len(name))
-        return res
+    @step("Validate Customer")
+    def validate_customer(self, customer_name: str):
+        # Auto-injected parameter
+        return f"Customer '{customer_name}' verified"
 
-    @step("Create Workspace", order=2, requires=["Validate Customer"], tags=["cloud"])
-    def create_workspace(self, context):
-        context["workspace_id"] = "ws_84920"
-        return self.success("Workspace provisioned on AWS")
+    @step("Create Workspace")
+    def create_workspace(self, ctx):
+        ctx["workspace_id"] = "ws_84920"
+        return "Workspace provisioned on AWS"
 
-    @step("Send Welcome Email", order=3, condition="send_welcome", requires=["Create Workspace"], tags=["email"])
-    def send_welcome_email(self, context):
-        email = context.get("admin_email")
-        return self.success(f"Welcome kit sent to {email}")
+    @step("Send Welcome Email", condition="send_welcome")
+    def send_welcome_email(self, admin_email: str):
+        return f"Welcome kit sent to {admin_email}"
 ```
 
 ---

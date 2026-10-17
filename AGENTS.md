@@ -78,16 +78,45 @@ valiant/
      - **Tier 2 (Full Parquet Artifact)**: Full un-truncated dataset saved with zero-copy write to `.valiant/artifacts/{env}/{run_id}/{step_name}.parquet`.
    - Dedicated lazy scan query API (`GET /api/runs/{run_id}/steps/{step_name}/tabular/data`) powers instantaneous (<5ms) in-drawer filtering, column sorting, text search, and pagination directly from memory-mapped Parquet.
    - Dedicated streaming export API (`GET /api/runs/{run_id}/steps/{step_name}/tabular/export`) streams full datasets as `CSV`, `Parquet`, or `JSON` with 1-click downloads.
-10. **Standalone HTML Execution & Audit Report Generator**:
+10. **Standalone Multi-Tab HTML Execution & Audit Report Generator**:
     - Generates self-contained, offline-ready HTML reports for any workflow run via `backend/valiant/core/report.py`.
-    - HTML reports require zero external CDNs, scripts, or fonts. Everything is self-contained with embedded CSS variables and SVGs.
-    - PDF engines (wkhtmltopdf/weasyprint) are strictly forbidden; print-to-PDF is achieved cleanly via browser native print stylesheets (`@media print`).
-    - Reports encapsulate run metadata, KPI summary grids, step execution breakdown with duration and metrics, human-in-the-loop approval trails with operator justifications, and embedded Polars tabular previews.
+    - HTML reports require zero external CDNs, scripts, or fonts. Everything is self-contained with embedded CSS variables, SVGs, and lightweight vanilla JS.
+    - Features 5 interactive tabs:
+      - 📊 **Executive Overview & Topology**: Run metadata, KPI summary cards, execution duration percentage timeline bar, and masked workflow inputs grid.
+      - ⚡ **Step Execution Breakdown**: Status filter pills (`All`, `Succeeded`, `Failed`, `Approvals`, `Tabular`), Expand/Collapse all controls, and collapsible step accordions with duration, diagnostics, context deltas, and step logs.
+      - 📈 **Polars Tabular Datasets**: Dataset switcher, live client-side search across all columns, clickable column sorting (ascending/descending), and CSV clipboard copy.
+      - 🛡️ **Governance Audit Trail**: Official compliance seal banner, human-in-the-loop authorization gates, operator identities, timestamps, and justification trails.
+      - 📜 **Raw Execution Logs & Final Context**: Terminal console viewer displaying full untruncated disk logs (`.valiant/logs/{env}/{run_id}.log`) and formatted context JSON with automated secret masking (`********`).
+    - Interactive controls: Dark/Light mode theme toggle switch with persistent storage, HTML file download, and native print-to-PDF (`@media print` stylesheet automatically expands all tabs and accordions for complete paper/PDF documentation).
     - Accessible via CLI (`valiant report <run_id> --output path --open`), REST API (`GET /api/runs/{run_id}/report/html?download=bool`), and 1-click actions in Live Run header, Run Details modal, and Run History table.
+11. **Desktop Local DevOps Automation & Subprocess Execution Engine**:
+    - Subprocess execution must always use `await context.exec(command, cwd=..., env=..., timeout=..., stream_logs=True)`.
+    - Cross-platform binary resolution (`shutil.which`) is enforced so Windows batch scripts (`mvn.cmd`, `npm.cmd`) resolve cleanly without platform-specific code.
+    - Responsive cancellation: When a run is cancelled, active child processes are immediately terminated via process tree killing (`taskkill /F /T` on Windows, `os.killpg` on Unix).
+    - Dedicated per-run raw execution log files are stored at `.valiant/logs/{env}/{run_id}.log` with zero line drops, accessible via CLI (`valiant logs <run_id> --follow`), REST API (`GET /api/runs/{run_id}/logs/file`), and UI 1-click download split-buttons.
+    - Long-running async deployment checks must use `await context.poll_until(check_target, predicate=..., timeout=..., interval=...)` with live progress heartbeats emitted to UI.
+    - Reusable DevOps helpers reside in `backend/valiant/tools/` (`GitHelper`, `MavenHelper`, `DockerHelper`).
+12. **Client-Side Compact & Functional Micro-Workflow Engine**:
+    - **Dual Syntax Support**: Workflows may be authored as modern type-annotated classes (Pydantic/Dataclass-style with auto-inferred inputs and auto step ordering) or fluent functional micro-workflows (`wf = workflow(...)`, `@wf.step`, `@wf.approval`).
+    - **Direct Parameter Injection**: Step functions declare required parameters directly (`def step(batch_id: str, count: int, ctx=None):`); the runner auto-resolves arguments from workflow inputs and execution context.
+    - **Automatic Result Wrapping**: Step functions can directly return Polars DataFrames (auto-captured as dual-tier Parquet artifacts), dictionaries, strings, booleans, or `None` without boilerplate `self.success(...)` calls.
+    - **Backward Compatibility**: Fully backward compatible with legacy `Workflow` subclasses and explicit `InputField` definitions.
 
 ---
 
-## 3. Code Style & Rules
+## 3. Mandatory Testing & Quality Assurance Checklist
+
+Every feature addition or refactoring must strictly satisfy this checklist:
+1. **Automated Pytest Suite**: Execute `pytest tests/` (100% passing across all suites).
+2. **Frontend Type Checking & Bundling**: Execute `cd frontend && npm run lint && npm run build` (0 TypeScript compiler errors, 0 Oxlint errors).
+3. **Cross-Platform & Windows Verification**: Ensure file I/O specifies `encoding="utf-8"`, paths format via `Path.as_posix()`, and shell binaries resolve via `shutil.which`.
+4. **Visual UI/UX Snapshot Review**: Capture actual browser screenshots using Playwright or system Chrome to visually audit layout, spacing, dark-mode color balance, and interactive states.
+5. **Dependency Hygiene**: Verify zero unapproved dependencies are introduced. Tabular data must strictly use **Polars** (zero Pandas).
+6. **Documentation & Agent Skills Sync**: Keep `AGENTS.md`, `CLAUDE.md`, `.agents/skills/authoring-workflows/SKILL.md`, and `.agents/skills/code-review/SKILL.md` synchronized with the new capabilities.
+
+---
+
+## 4. Code Style & Rules
 
 ### Backend (Python)
 - **Typing**: Strict type annotations on all function signatures (`Optional[T]`, `Dict[str, Any]`, `List[T]`, `Union`).

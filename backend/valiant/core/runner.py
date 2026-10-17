@@ -6,10 +6,14 @@ import time
 import uuid
 import traceback
 from datetime import datetime
-from typing import Dict, List, Any, Optional, Callable, Awaitable, Union
+import os
+import signal
+import subprocess
+from typing import Dict, List, Any, Optional, Callable, Awaitable, Union, Set
 from concurrent.futures import ThreadPoolExecutor
 import inspect
 import json
+import functools
 
 from .models import (
     WorkflowResult,
@@ -24,6 +28,8 @@ from .models import (
 )
 from .context import WorkflowContext
 from .workflow import Workflow
+from .logging import RunLogManager
+from .tabular import is_polars_dataframe, to_tabular_payload, save_tabular_artifact
 
 _ACTIVE_RUNNERS: Dict[str, "WorkflowRunner"] = {}
 _APPROVAL_EVENTS: Dict[str, Dict[str, asyncio.Event]] = {}
@@ -86,6 +92,38 @@ class WorkflowRunner:
         self.cancelled = False
         self.approved_steps: Dict[str, Dict[str, Any]] = {}
         self._thread_pool = ThreadPoolExecutor(max_workers=8)
+        self._active_processes: Dict[int, Any] = {}
+        self._active_tasks: Set[asyncio.Task] = set()
+
+    def register_process(self, proc: Any) -> None:
+        """Register an active child process spawned by this run."""
+        if hasattr(proc, "pid") and proc.pid:
+            self._active_processes[proc.pid] = proc
+
+    def unregister_process(self, proc: Any) -> None:
+        """Unregister a finished child process."""
+        if hasattr(proc, "pid") and proc.pid:
+            self._active_processes.pop(proc.pid, None)
+
+    def kill_process(self, proc: Any) -> None:
+        """Kill a child process tree cross-platform (taskkill on Windows, killpg on POSIX)."""
+        pid = getattr(proc, "pid", None)
+        if not pid:
+            return
+        try:
+            if os.name == "nt":
+                subprocess.run(["taskkill", "/F", "/T", "/PID", str(pid)], capture_output=True)
+            else:
+                try:
+                    pgid = os.getpgid(pid)
+                    os.killpg(pgid, signal.SIGTERM)
+                except Exception:
+                    proc.kill()
+        except Exception:
+            try:
+                proc.kill()
+            except Exception:
+                pass
 
     async def _emit(self, event_type: RunEventType, step_name: Optional[str] = None, data: Optional[Dict[str, Any]] = None):
         """Emit real-time event to registered listener."""
@@ -107,8 +145,14 @@ class WorkflowRunner:
             print(f"[Runner Event Error] {e}")
 
     def cancel(self):
-        """Request cancellation of the current run."""
+        """Request cancellation of the current run, kill child processes, and cancel tasks."""
         self.cancelled = True
+        for proc in list(self._active_processes.values()):
+            self.kill_process(proc)
+        self._active_processes.clear()
+        for task in list(self._active_tasks):
+            if not task.done():
+                task.cancel()
 
     async def run(
         self,
@@ -125,6 +169,7 @@ class WorkflowRunner:
         inputs = inputs or {}
         resume_target = resume_from_step or self.resumed_from_step
         context = WorkflowContext()
+        context.bind_runner(self)
 
         # 1. Populate context with workflow schema defaults
         for field in self.workflow.inputs():
@@ -213,6 +258,14 @@ class WorkflowRunner:
             "parent_run_id": self.parent_run_id,
             "resumed_from_step": resume_target
         })
+
+        RunLogManager.init_run_log(
+            run_id=self.run_id,
+            workflow_name=getattr(self.workflow, "workflow_id", self.workflow.__class__.__name__),
+            env=self.environment,
+            inputs=inputs,
+            started_at=start_iso
+        )
 
         # Run workflow setup hook
         try:
@@ -481,12 +534,26 @@ class WorkflowRunner:
                 break
 
             # Run batch steps concurrently
-            tasks = [self._execute_single_step(config, func, context, step_results, has_failure) for config, func in batch]
-            batch_results = await asyncio.gather(*tasks)
+            step_tasks = [
+                asyncio.create_task(self._execute_single_step(config, func, context, step_results, has_failure))
+                for config, func in batch
+            ]
+            for t in step_tasks:
+                self._active_tasks.add(t)
+            try:
+                batch_results = await asyncio.gather(*step_tasks, return_exceptions=True)
+            finally:
+                for t in step_tasks:
+                    self._active_tasks.discard(t)
 
             for res in batch_results:
-                step_results.append(res)
-                if res.executed and not res.success:
+                if isinstance(res, StepResult):
+                    step_results.append(res)
+                    if res.executed and not res.success:
+                        has_failure = True
+                elif isinstance(res, asyncio.CancelledError):
+                    has_failure = True
+                elif isinstance(res, Exception):
                     has_failure = True
 
         # Run teardown hook
@@ -573,8 +640,60 @@ class WorkflowRunner:
             profile=self.profile
         )
 
+        RunLogManager.finalize_run_log(
+            run_id=self.run_id,
+            status=overall_status.value,
+            duration=total_time,
+            total_steps=total_steps,
+            successful_steps=successful_count,
+            failed_steps=failed_count,
+            env=self.environment
+        )
+
         await self._emit(RunEventType.RUN_FINISHED, data=wf_result.model_dump())
         return wf_result
+
+    def _resolve_callable_args(self, func: Callable, step_context: Any) -> tuple[list, dict]:
+        """Introspect callable signature and inject matched context arguments or defaults."""
+        target = getattr(func, "__wrapped__", func)
+        try:
+            sig = inspect.signature(target)
+        except (ValueError, TypeError):
+            return [step_context], {}
+
+        params = list(sig.parameters.values())
+        if not params:
+            return [], {}
+
+        args: List[Any] = []
+        kwargs: Dict[str, Any] = {}
+
+        for param in params:
+            p_name = param.name
+            if p_name in ("self", "cls"):
+                continue
+            if param.kind == inspect.Parameter.VAR_POSITIONAL:
+                continue
+            if param.kind == inspect.Parameter.VAR_KEYWORD:
+                kwargs.update(step_context.to_dict(mask_secrets=False))
+                continue
+
+            val = None
+            if p_name in ("context", "ctx") or (param.annotation and str(param.annotation) in ("WorkflowContext", "ScopedStepContext")):
+                val = step_context
+            elif p_name in step_context:
+                val = step_context.get(p_name)
+            elif param.default is not inspect.Parameter.empty:
+                val = param.default
+            else:
+                val = step_context.get(p_name, None)
+
+            if param.kind == inspect.Parameter.POSITIONAL_ONLY:
+                args.append(val)
+            else:
+                kwargs[p_name] = val
+
+        return args, kwargs
 
     async def _execute_single_step(
         self,
@@ -647,6 +766,7 @@ class WorkflowRunner:
         step_context = context.scoped(step_name)
 
         await self._emit(RunEventType.STEP_STARTED, step_name=step_name, data={"order": config.order})
+        RunLogManager.append_step_start(self.run_id, step_name, order=config.order, env=self.environment)
 
         attempts = 0
         max_attempts = config.retries + 1
@@ -656,19 +776,42 @@ class WorkflowRunner:
         while attempts < max_attempts:
             attempts += 1
             try:
-                # Call step method with scoped step context
-                if inspect.iscoroutinefunction(func):
-                    res = await asyncio.wait_for(func(step_context), timeout=config.timeout)
+                # Call step method with injected arguments and scoped step context
+                call_args, call_kwargs = self._resolve_callable_args(func, step_context)
+                call_fn = functools.partial(func, *call_args, **call_kwargs)
+
+                is_async = inspect.iscoroutinefunction(func) or inspect.iscoroutinefunction(getattr(func, "__wrapped__", None))
+                if is_async:
+                    res = await asyncio.wait_for(call_fn(), timeout=config.timeout)
                 else:
                     loop = asyncio.get_running_loop()
                     res = await asyncio.wait_for(
-                        loop.run_in_executor(self._thread_pool, func, step_context),
+                        loop.run_in_executor(self._thread_pool, call_fn),
                         timeout=config.timeout
                     )
+                if inspect.iscoroutine(res):
+                    res = await res
 
-                # Format return value
+                # Auto-format and wrap return values
                 if isinstance(res, StepResult):
                     final_result = res
+                elif is_polars_dataframe(res):
+                    count_str = f"{len(res)} rows" if hasattr(res, "__len__") else "lazy frame"
+                    final_result = StepResult(
+                        name=step_name,
+                        status=StepStatus.SUCCESS,
+                        success=True,
+                        message=f"Produced tabular dataset ({count_str})",
+                        data=res
+                    )
+                elif isinstance(res, bool):
+                    final_result = StepResult(
+                        name=step_name,
+                        status=StepStatus.SUCCESS if res else StepStatus.FAILED,
+                        success=res,
+                        message="Step completed successfully" if res else "Step returned False",
+                        data=res
+                    )
                 elif isinstance(res, tuple) and len(res) >= 2:
                     ok = bool(res[0])
                     msg = str(res[1])
@@ -680,12 +823,37 @@ class WorkflowRunner:
                         message=msg,
                         data=data
                     )
+                elif isinstance(res, str):
+                    final_result = StepResult(
+                        name=step_name,
+                        status=StepStatus.SUCCESS,
+                        success=True,
+                        message=res,
+                        data=res
+                    )
+                elif isinstance(res, dict):
+                    msg = res.get("message") if isinstance(res.get("message"), str) else "Step completed successfully"
+                    final_result = StepResult(
+                        name=step_name,
+                        status=StepStatus.SUCCESS,
+                        success=True,
+                        message=msg,
+                        data=res
+                    )
+                elif res is None:
+                    final_result = StepResult(
+                        name=step_name,
+                        status=StepStatus.SUCCESS,
+                        success=True,
+                        message="Completed",
+                        data=None
+                    )
                 else:
                     final_result = StepResult(
                         name=step_name,
                         status=StepStatus.SUCCESS,
                         success=True,
-                        message=str(res) if res is not None else "Completed",
+                        message=str(res),
                         data=res
                     )
 
@@ -694,6 +862,15 @@ class WorkflowRunner:
                 elif attempts < max_attempts:
                     await asyncio.sleep(0.5)
 
+            except asyncio.CancelledError:
+                final_result = StepResult(
+                    name=step_name,
+                    status=StepStatus.SKIPPED,
+                    success=False,
+                    skipped=True,
+                    message="Cancelled by operator"
+                )
+                break
             except asyncio.TimeoutError:
                 final_result = StepResult(
                     name=step_name,
@@ -770,7 +947,6 @@ class WorkflowRunner:
 
         # Check for Polars Tabular Data in return data or written context
         try:
-            from .tabular import is_polars_dataframe, to_tabular_payload, save_tabular_artifact
             target_df = None
             if is_polars_dataframe(final_result.data):
                 target_df = final_result.data
@@ -793,6 +969,15 @@ class WorkflowRunner:
                     }
         except Exception as te:
             print(f"[Tabular Engine Notice] Failed to extract tabular data for {step_name}: {te}")
+
+        RunLogManager.append_step_end(
+            run_id=self.run_id,
+            step_name=step_name,
+            status=final_result.status.value,
+            duration=final_result.time_taken,
+            message=final_result.message,
+            env=self.environment
+        )
 
         await self._emit(RunEventType.STEP_FINISHED, step_name=step_name, data=final_result.model_dump())
         return final_result

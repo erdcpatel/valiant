@@ -735,3 +735,33 @@ def get_run_html_report_endpoint(
         headers["Content-Disposition"] = f'attachment; filename="{filename}"'
 
     return Response(content=html_content, media_type="text/html", headers=headers)
+
+
+@router.get("/{run_id}/logs/file")
+def get_run_log_file_endpoint(
+    run_id: str,
+    request: Request,
+    download: bool = Query(False, description="Whether to trigger file download attachment"),
+    env: Optional[str] = Query(None)
+):
+    """
+    Retrieve or download dedicated per-run raw execution log (.log file).
+    """
+    from ...core.logging import RunLogManager
+    target_env = normalize_environment(env or request.headers.get("x-valiant-env") or "dev")
+    log_path = RunLogManager.get_path(run_id, env=target_env)
+
+    if not log_path.exists():
+        run_data = get_run_by_id(run_id, env=target_env)
+        runner = _ACTIVE_RUNNERS.get(run_id)
+        if not run_data and not runner:
+            raise HTTPException(status_code=404, detail=f"Log file for run '{run_id}' not found")
+
+    content = RunLogManager.read_log_content(run_id, env=target_env)
+
+    headers = {"Content-Type": "text/plain; charset=utf-8"}
+    if download:
+        filename = f"valiant-run-{run_id}-{target_env}.log"
+        headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+
+    return Response(content=content, media_type="text/plain", headers=headers)

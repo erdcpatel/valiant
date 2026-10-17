@@ -58,7 +58,8 @@ def run_workflow(
         None, "--set", "-s", help="Set input parameters in key=value format"
     ),
     output_format: str = typer.Option("rich", "--output", "-o", help="Output format: 'rich' or 'json'"),
-    interactive: bool = typer.Option(True, "--interactive/--non-interactive", help="Prompt for missing required inputs")
+    interactive: bool = typer.Option(True, "--interactive/--non-interactive", help="Prompt for missing required inputs"),
+    env: str = typer.Option("dev", "--env", "-e", help="Environment partition ('dev', 'uat', 'prod')")
 ):
     """Execute a workflow directly in the terminal."""
     registry.discover()
@@ -94,15 +95,15 @@ def run_workflow(
             elif field.default is not None:
                 inputs[field.name] = field.default
 
-    runner = WorkflowRunner(workflow=wf_instance)
+    runner = WorkflowRunner(workflow=wf_instance, environment=env)
 
     if output_format != "json":
-        console.print(Panel(f"[bold cyan]Running Workflow:[/] [bold white]{wf_instance.name}[/] ([dim]{runner.run_id}[/])"))
+        console.print(Panel(f"[bold cyan]Running Workflow:[/] [bold white]{wf_instance.name}[/] ([dim]{runner.run_id}[/]) [dim][{env.upper()}][/dim]"))
 
     result = asyncio.run(runner.run(inputs))
 
     # Save to SQLite database
-    save_run_result(result, inputs)
+    save_run_result(result, inputs, env=env)
 
     if output_format == "json":
         print(json.dumps(result.model_dump(), indent=2))
@@ -196,7 +197,8 @@ def start_server(
 @app.command("new")
 def scaffold_workflow(
     name: str = typer.Argument(..., help="Workflow name in snake_case (e.g. data_sync)"),
-    directory: str = typer.Option("backend/workflows", "--dir", "-d", help="Target directory")
+    directory: str = typer.Option("backend/workflows", "--dir", "-d", help="Target directory"),
+    style: str = typer.Option("compact", "--style", "-s", help="Template style: 'compact' (modern type-annotated), 'functional' (micro-workflow), or 'standard'")
 ):
     """Scaffold a new production-ready workflow template file."""
     class_name = "".join(part.capitalize() for part in name.split("_")) + "Workflow"
@@ -208,7 +210,79 @@ def scaffold_workflow(
         console.print(f"[red]Error: File {target_file} already exists.[/red]")
         raise typer.Exit(code=1)
 
-    template_code = f'''\"\"\"
+    if style.lower() == "functional":
+        template_code = f'''\"\"\"
+{name} - Functional Micro-Workflow
+\"\"\"
+from backend.valiant import workflow
+
+wf = workflow(
+    "{name}",
+    description="Functional workflow for {name.replace('_', ' ')}",
+    tags=["micro", "automation"]
+)
+
+# Declare parameters (or let them auto-infer from step arguments)
+wf.input("job_name", type=str, default="{name}_run", help_text="Job identifier")
+wf.input("batch_size", type=int, default=100)
+wf.input("notify", type=bool, default=True)
+
+@wf.step("Validate Inputs")
+def validate_inputs(job_name: str = "{name}_run", batch_size: int = 100):
+    # Parameters are auto-injected from workflow inputs!
+    return f"Validated {{job_name}} for {{batch_size}} records"
+
+@wf.approval("Operator Sign-off", prompt="Authorize execution to proceed?")
+def operator_signoff():
+    pass
+
+@wf.step("Process Data")
+async def process_data(ctx, batch_size: int = 100):
+    ctx.log(f"Processing batch of {{batch_size}} records in real-time")
+    ctx["processed_count"] = batch_size
+    return {{"status": "ok", "processed": batch_size}}
+
+@wf.step("Send Notification", condition="notify")
+def send_notification(ctx):
+    count = ctx.get("processed_count", 0)
+    return f"Notification dispatched for {{count}} items"
+'''
+    elif style.lower() == "compact":
+        template_code = f'''\"\"\"
+{class_name} - Modern Compact Workflow
+\"\"\"
+from typing import Literal
+from backend.valiant import Workflow, step, workflow
+
+
+@workflow(name="{name}", description="Automated workflow for {name.replace('_', ' ')}")
+class {class_name}(Workflow):
+    name = "{name.replace('_', ' ').title()}"
+    tags = ["automation", "compact"]
+
+    # Typed parameters auto-generate UI forms and API schemas (zero InputField ceremony)
+    job_name: str = "{name}_run"
+    batch_size: int = 100
+    notify: bool = True
+    mode: Literal["fast", "standard", "thorough"] = "standard"
+
+    @step("Validate Inputs")
+    def validate_inputs(self, job_name: str, batch_size: int):
+        # Parameters are auto-injected from context/inputs!
+        return f"Validated {{job_name}} with batch size {{batch_size}}"
+
+    @step("Process Data")
+    async def process_data(self, ctx, batch_size: int):
+        ctx["processed_count"] = batch_size
+        return {{"status": "ok", "processed": batch_size}}
+
+    @step("Send Notification", condition="notify")
+    def send_notification(self, ctx):
+        count = ctx.get("processed_count", 0)
+        return f"Notification sent for {{count}} items"
+'''
+    else:
+        template_code = f'''\"\"\"
 {class_name} - Automated Workflow
 \"\"\"
 from backend.valiant import Workflow, step, workflow, InputField, InputType
@@ -250,7 +324,8 @@ class {class_name}(Workflow):
     with open(target_file, "w", encoding="utf-8") as f:
         f.write(template_code)
 
-    console.print(f"[bold green]✓ Created new workflow:[/] [cyan]{target_file}[/]")
+    console.print(f"[bold green]✓ Created new {style} workflow:[/] [cyan]{target_file}[/]")
+
     console.print(f"Run it now: [white]python run.py run {name}[/]")
 
 
@@ -281,6 +356,62 @@ def generate_report_cmd(
     console.print(f"[bold green]✓ Report generated successfully:[/] [cyan]{out_path.resolve()}[/]")
     if open_browser:
         webbrowser.open(out_path.resolve().as_uri())
+
+
+@app.command("logs")
+def view_run_logs_cmd(
+    run_id: str = typer.Argument(..., help="Run ID to inspect logs for"),
+    env: str = typer.Option("dev", "--env", "-e", help="Environment partition ('dev', 'uat', 'prod')"),
+    tail: Optional[int] = typer.Option(None, "--tail", "-n", help="Display only the last N lines"),
+    follow: bool = typer.Option(False, "--follow", "-f", help="Continuously output appended log lines")
+):
+    """View or follow raw execution log file for a specific workflow run."""
+    import time
+    from ..core.environments import normalize_environment
+    from ..core.logging import RunLogManager
+
+    target_env = normalize_environment(env)
+    log_path = RunLogManager.get_path(run_id, env=target_env)
+
+    if not log_path.exists():
+        console.print(f"[yellow]Log file not found at: {log_path.resolve()}[/yellow]")
+        console.print(f"[dim]Checking SQLite database for execution logs...[/dim]")
+        from ..db.database import get_run_by_id
+        run_data = get_run_by_id(run_id, env=target_env)
+        if not run_data:
+            console.print(f"[red]Error: Run '{run_id}' not found in [{target_env.upper()}] environment.[/red]")
+            raise typer.Exit(code=1)
+        console.print(RunLogManager.read_log_content(run_id, env=target_env))
+        return
+
+    if not follow:
+        content = log_path.read_text(encoding="utf-8", errors="replace")
+        lines = content.splitlines()
+        if tail and tail > 0:
+            lines = lines[-tail:]
+        for line in lines:
+            console.print(line)
+        return
+
+    # Follow mode (tail -f)
+    console.print(f"[cyan]Streaming live logs for {run_id} ({log_path.resolve()}) [Ctrl+C to stop]...[/cyan]\n")
+    with open(log_path, "r", encoding="utf-8", errors="replace") as f:
+        if tail and tail > 0:
+            lines = f.readlines()
+            for line in lines[-tail:]:
+                console.print(line.rstrip())
+        else:
+            f.seek(0, os.SEEK_END)
+
+        try:
+            while True:
+                line = f.readline()
+                if line:
+                    console.print(line.rstrip())
+                else:
+                    time.sleep(0.5)
+        except KeyboardInterrupt:
+            console.print("\n[dim]Stopped log streaming.[/dim]")
 
 
 def main():

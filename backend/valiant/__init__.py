@@ -16,9 +16,12 @@ from .core.models import (
     RunEventType,
 )
 from .core.context import WorkflowContext
-from .core.workflow import Workflow, step, workflow
+from .core.workflow import Workflow, FunctionalWorkflow, step, workflow
 from .core.runner import WorkflowRunner
 from .core.registry import registry, WorkflowRegistry
+from .tools.git import GitHelper
+from .tools.maven import MavenHelper
+from .tools.docker import DockerHelper
 
 __all__ = [
     "__version__",
@@ -34,9 +37,13 @@ __all__ = [
     "RunEventType",
     "WorkflowContext",
     "Workflow",
+    "FunctionalWorkflow",
     "step",
     "workflow",
     "WorkflowRunner",
     "registry",
     "WorkflowRegistry",
+    "GitHelper",
+    "MavenHelper",
+    "DockerHelper",
 ]
