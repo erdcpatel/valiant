@@ -357,6 +357,7 @@ class WorkflowContext:
                     self._runner.kill_process(proc)
                 else:
                     proc.kill()
+                await proc.wait()
             except Exception:
                 pass
             return CommandResult(

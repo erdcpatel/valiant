@@ -151,3 +151,6 @@ async def test_runner_process_cancellation():
     assert dur < 3.0  # Must terminate within seconds, not wait for 30s sleep!
     assert runner.cancelled is True
     assert res.status == "cancelled"
+
+    # Give anyio / asyncio loop time to flush transport pipe callbacks
+    await asyncio.sleep(0.1)
