@@ -45,6 +45,7 @@ export const WorkflowsPage: React.FC<WorkflowsPageProps> = ({
     const saved = localStorage.getItem('valiant_show_defaults');
     return saved !== null ? saved === 'true' : true;
   });
+  const [isTagsExpanded, setIsTagsExpanded] = useState(false);
 
   useEffect(() => {
     if (initialModalWf && workflows[initialModalWf]) {
@@ -60,11 +61,11 @@ export const WorkflowsPage: React.FC<WorkflowsPageProps> = ({
   const successfulRuns = recentRuns.filter((r) => r.status === 'completed' && r.success).length;
   const successRate = totalRuns > 0 ? Math.round((successfulRuns / totalRuns) * 100) : 100;
 
-  // Filter workflows
-  const filteredWorkflows = workflowList.filter((wf) => {
-    if (!showDefaults && wf.is_default) {
-      return false;
-    }
+  // Base workflows list taking template visibility into account
+  const visibleWorkflows = workflowList.filter((wf) => showDefaults || !wf.is_default);
+
+  // Filter workflows by search and selected tag
+  const filteredWorkflows = visibleWorkflows.filter((wf) => {
     const matchesSearch =
       wf.name.toLowerCase().includes(search.toLowerCase()) ||
       wf.description.toLowerCase().includes(search.toLowerCase()) ||
@@ -73,7 +74,8 @@ export const WorkflowsPage: React.FC<WorkflowsPageProps> = ({
     return matchesSearch && matchesTag;
   });
 
-  const allTags = Array.from(new Set(workflowList.flatMap((w) => w.tags || [])));
+  // Only derive tags from active visible workflows (hidden templates hide their tags too!)
+  const allTags = Array.from(new Set(visibleWorkflows.flatMap((w) => w.tags || []))).sort();
 
   return (
     <div className="space-y-8 animate-fadeIn">
@@ -139,20 +141,24 @@ export const WorkflowsPage: React.FC<WorkflowsPageProps> = ({
                 const next = !showDefaults;
                 setShowDefaults(next);
                 localStorage.setItem('valiant_show_defaults', String(next));
+                // If currently active tag belongs only to templates, clear it
+                if (selectedTag && !workflowList.some((w) => (!next ? !w.is_default : true) && w.tags?.includes(selectedTag))) {
+                  setSelectedTag(null);
+                }
               }}
               className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors ${
                 showDefaults
                   ? 'bg-slate-900 border-slate-700/80 text-slate-300 hover:text-white hover:border-slate-600'
                   : 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/20'
               }`}
-              title={showDefaults ? 'Hide default template workflows' : 'Show default template workflows'}
+              title={showDefaults ? 'Hide built-in templates from catalog' : 'Show built-in templates in catalog'}
             >
               {showDefaults ? (
                 <EyeOff className="h-3.5 w-3.5 text-slate-400" />
               ) : (
                 <Eye className="h-3.5 w-3.5 text-indigo-400" />
               )}
-              <span>{showDefaults ? 'Hide Default Templates' : 'Show Default Templates'}</span>
+              <span>{showDefaults ? 'Templates' : 'Templates Hidden'}</span>
               <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-800/80 border border-slate-700 font-mono text-slate-300">
                 {defaultCount}
               </span>
@@ -160,10 +166,10 @@ export const WorkflowsPage: React.FC<WorkflowsPageProps> = ({
           )}
 
           {allTags.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5">
+            <div className="flex items-center gap-1.5">
               <button
                 onClick={() => setSelectedTag(null)}
-                className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
                   selectedTag === null
                     ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
                     : 'bg-slate-900 text-slate-400 border border-slate-800 hover:text-slate-200'
@@ -171,11 +177,11 @@ export const WorkflowsPage: React.FC<WorkflowsPageProps> = ({
               >
                 All
               </button>
-              {allTags.map((tag) => (
+              {(isTagsExpanded ? allTags : allTags.slice(0, 6)).map((tag) => (
                 <button
                   key={tag}
                   onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
-                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
                     selectedTag === tag
                       ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
                       : 'bg-slate-900 text-slate-400 border border-slate-800 hover:text-slate-200'
@@ -184,6 +190,16 @@ export const WorkflowsPage: React.FC<WorkflowsPageProps> = ({
                   #{tag}
                 </button>
               ))}
+              {allTags.length > 6 && (
+                <button
+                  type="button"
+                  onClick={() => setIsTagsExpanded((prev) => !prev)}
+                  className="px-2 py-1 rounded-lg text-xs font-medium bg-slate-900/80 border border-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
+                  title={isTagsExpanded ? 'Show fewer tags' : `Show all ${allTags.length} tags`}
+                >
+                  {isTagsExpanded ? 'Show Less' : `+${allTags.length - 6} more`}
+                </button>
+              )}
             </div>
           )}
         </div>

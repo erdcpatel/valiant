@@ -17,8 +17,47 @@ from ..core.runner import WorkflowRunner
 from ..core.models import StepStatus
 from ..db.database import save_run_result, get_recent_runs
 
-app = typer.Typer(help="Valiant Workflow Automation Platform CLI")
+app = typer.Typer(
+    name="valiant",
+    help="ValiantFlow — Developer-First Python Workflow Automation & Orchestration Platform",
+    no_args_is_help=True,
+    rich_markup_mode="rich"
+)
 console = Console()
+
+
+@app.callback(invoke_without_command=True)
+def main_callback(
+    ctx: typer.Context,
+    version: bool = typer.Option(False, "--version", "-v", help="Display ValiantFlow version")
+):
+    """ValiantFlow — Developer-First Python Workflow Automation & Orchestration Platform."""
+    from .. import __version__
+    if version:
+        console.print(f"[bold cyan]ValiantFlow Platform CLI[/] v{__version__}")
+        raise typer.Exit()
+    if ctx.invoked_subcommand is None:
+        console.print(Panel(
+            f"[bold cyan]ValiantFlow[/] [dim]v{__version__}[/dim] — Enterprise Python Workflow Automation & Orchestration\n\n"
+            f"[bold white]Core Commands:[reset]\n"
+            f"  [cyan]valiant list[/]                     List all discovered workflows in current workspace\n"
+            f"  [cyan]valiant run <id>[/reset]                 Execute a workflow directly in the terminal\n"
+            f"  [cyan]valiant serve[/reset]                    Launch Web Dashboard & REST API with smart port selection\n"
+            f"  [cyan]valiant init[/reset]                     Initialize a project directory with workflows/ and starter template\n"
+            f"  [cyan]valiant new <name>[/reset]               Scaffold a new production-ready workflow template\n"
+            f"  [cyan]valiant runs[/reset]                     Query and inspect persistent run execution history\n"
+            f"  [cyan]valiant report <run_id>[/reset]          Generate interactive offline-ready multi-tab HTML report\n"
+            f"  [cyan]valiant logs <run_id>[/reset]            Stream or tail dedicated per-run raw execution logs\n\n"
+            f"[bold white]Getting Started:[reset]\n"
+            f"  [dim]$[/] [white]valiant init[/]                  [dim]# Set up workflows/ directory[/dim]\n"
+            f"  [dim]$[/] [white]valiant run starter_workflow[/]  [dim]# Run starter workflow in DEV[/dim]\n"
+            f"  [dim]$[/] [white]valiant serve[/]                 [dim]# Open dashboard at http://localhost:8000[/dim]\n\n"
+            f"[dim]Run [bold white]valiant <command> --help[/bold white] for detailed options on any command.[/dim]",
+            title="[bold cyan]⚡ ValiantFlow CLI[/]",
+            border_style="cyan"
+        ))
+        raise typer.Exit()
+
 
 
 @app.command("list")
@@ -189,24 +228,69 @@ def show_run_history(
     console.print(table)
 
 
+def _is_port_available(host: str, port: int) -> bool:
+    """Check if a TCP port is available for binding."""
+    import socket
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            # On 0.0.0.0 bind, check 127.0.0.1 and 0.0.0.0
+            test_host = "127.0.0.1" if host in ("0.0.0.0", "") else host
+            s.bind((test_host, port))
+            return True
+        except OSError:
+            return False
+
+
+def _find_available_port(host: str, start_port: int, max_attempts: int = 50) -> int:
+    """Find the next available port starting from start_port."""
+    for p in range(start_port, start_port + max_attempts):
+        if _is_port_available(host, p):
+            return p
+    return start_port
+
+
 @app.command("serve")
 def start_server(
-    host: str = typer.Option("0.0.0.0", "--host", "-h", help="Bind host"),
-    port: int = typer.Option(8000, "--port", "-p", help="Port number"),
+    host: Optional[str] = typer.Option(None, "--host", "-h", help="Bind host (or VALIANT_HOST env)"),
+    port: Optional[int] = typer.Option(None, "--port", "-p", help="Port number (or VALIANT_PORT / PORT env)"),
+    strict_port: bool = typer.Option(False, "--strict-port", help="Do not attempt to auto-select next available port if busy"),
     reload: bool = typer.Option(False, "--reload", help="Enable hot reload"),
     directory: Optional[str] = typer.Option(None, "--dir", "-d", help="Directory or file containing workflows")
 ):
-    """Launch the Valiant FastAPI service and Web UI."""
+    """Launch the Valiant FastAPI service and Web UI with smart port resolution."""
     if directory:
         os.environ["VALIANT_WORKFLOWS_DIR"] = str(Path(directory).resolve())
+
+    # Resolve host from arg or env
+    effective_host = host or os.environ.get("VALIANT_HOST") or "0.0.0.0"
+
+    # Resolve port from arg or env (VALIANT_PORT or PORT)
+    env_port = os.environ.get("VALIANT_PORT") or os.environ.get("PORT")
+    desired_port = port if port is not None else (int(env_port) if env_port and env_port.isdigit() else 8000)
+
+    # Check port availability
+    chosen_port = desired_port
+    if not _is_port_available(effective_host, desired_port):
+        if strict_port:
+            console.print(f"[bold red]Error: Port {desired_port} is already in use and --strict-port was specified.[/]")
+            raise typer.Exit(code=1)
+        available = _find_available_port(effective_host, desired_port + 1)
+        console.print(
+            f"[yellow]Notice: Desired port {desired_port} is in use. Auto-selected next free port: [bold cyan]{available}[/bold cyan][/yellow]"
+        )
+        chosen_port = available
+
+    display_host = "127.0.0.1" if effective_host == "0.0.0.0" else effective_host
     import uvicorn
     console.print(Panel(
-        f"[bold green]Starting Valiant Platform[/]\n"
-        f"API & Swagger: [cyan]http://{host}:{port}/docs[/]\n"
-        f"Web Dashboard: [cyan]http://{host}:{port}/[/]",
+        f"[bold green]Starting Valiant Platform[/]\n\n"
+        f"  Web Dashboard:  [bold cyan]http://{display_host}:{chosen_port}/[/]\n"
+        f"  REST API & Docs: [cyan]http://{display_host}:{chosen_port}/docs[/]\n"
+        f"  Bound Address:  [dim]{effective_host}:{chosen_port}[/dim]",
         title="Valiant Server"
     ))
-    uvicorn.run("backend.valiant.api.app:app", host=host, port=port, reload=reload)
+    uvicorn.run("backend.valiant.api.app:app", host=effective_host, port=chosen_port, reload=reload)
 
 
 @app.command("new")
