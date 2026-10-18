@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "valiantflow"
-version = "0.0.2"
+version = "0.0.3"
 description = "Developer-first Python Workflow Automation & Orchestration Platform"
 readme = "README.md"
 authors = [{ name = "ValiantFlow Team" }]

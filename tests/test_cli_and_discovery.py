@@ -203,3 +203,42 @@ def test_cli_run_warns_on_malformed_set():
     # Should warn about malformed argument
     assert "Warning: Ignoring malformed --set argument" in result.output
 
+
+def test_cli_root_no_args_shows_helpful_overview():
+    """Verify invoking 'valiant' with zero arguments renders formatted commands and options."""
+    result = runner.invoke(app, [])
+    # Zero-args with no_args_is_help renders full commands overview
+    assert "ValiantFlow" in result.output
+    assert "list" in result.output
+    assert "run" in result.output
+    assert "serve" in result.output
+
+
+def test_cli_version_flag():
+    """Verify 'valiant --version' prints version and exits cleanly."""
+    result = runner.invoke(app, ["--version"])
+    assert result.exit_code == 0
+    assert "ValiantFlow" in result.output
+    assert "0.0.3" in result.output
+
+
+def test_port_availability_detection():
+    """Verify _is_port_available correctly detects busy and free TCP ports."""
+    from backend.valiant.cli.main import _is_port_available, _find_available_port
+    import socket
+
+    # Bind a temporary socket
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.bind(("127.0.0.1", 0))
+    sock.listen(1)
+    bound_port = sock.getsockname()[1]
+
+    try:
+        assert not _is_port_available("127.0.0.1", bound_port)
+        next_port = _find_available_port("127.0.0.1", bound_port)
+        assert next_port != bound_port
+        assert _is_port_available("127.0.0.1", next_port)
+    finally:
+        sock.close()
+
+
