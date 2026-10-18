@@ -196,7 +196,7 @@ def test_html_report_handles_edge_cases():
 
 
 def test_api_health_returns_dynamic_version():
-    """Verify /api/health returns the actual package __version__ (0.0.2), not hardcoded 3.0.0."""
+    """Verify /api/health returns the actual package __version__, not hardcoded 3.0.0."""
     from fastapi.testclient import TestClient
     from backend.valiant.api.app import app
     from backend.valiant import __version__
@@ -207,7 +207,7 @@ def test_api_health_returns_dynamic_version():
     data = resp.json()
     assert data["status"] == "healthy"
     assert data["version"] == __version__
-    assert data["version"] == "0.0.2"
+    assert data["version"] == "0.0.3"
 
 
 def test_comparator_handles_none_runs_gracefully():
