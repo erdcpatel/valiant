@@ -32,8 +32,9 @@ This skill defines the rigorous criteria and checklist an AI agent or human revi
 - [ ] **SQL Injection Prevention**: Are all database interactions mediated by SQLAlchemy Core/ORM or explicitly parameterized? No f-string raw SQL queries allowed.
 - [ ] **Human-in-the-Loop Breakpoints**: Are sensitive mutations (infrastructure provisioning, production releases, data migrations) guarded with `@step(requires_approval=True)`? Does the runner safely suspend without thread blocking?
 - [ ] **Approval Audit Trail**: Are operator decisions, timestamps, and justification notes persisted to the environment database upon approve or reject?
-- [ ] **Webhook Authentication**: Do inbound webhooks validate the secret header (`X-Valiant-Secret`) if configured, and return 202 Accepted rather than blocking the caller?
-- [ ] **Input Sanitization**: Are workflow parameters modeled with explicit `InputField` types (`TEXT`, `NUMBER`, `BOOLEAN`, `SELECT`, etc.) and validated before execution?
+- [ ] **Webhook Authentication**: Do inbound webhooks validate the secret header (`X-Valiant-Secret`) via constant-time comparison (`hmac.compare_digest`) if configured, and return 202 Accepted rather than blocking the caller?
+- [ ] **SQLite Concurrency & WAL Mode**: Does SQLite database connection configuration enforce WAL journal mode (`PRAGMA journal_mode=WAL;`), busy timeouts (5000ms), and scoped connection timeouts to prevent concurrency locks?
+- [ ] **Input Sanitization & Coercion**: Are workflow parameters validated and auto-coerced to annotated types (`int`, `float`, `bool`) without unhandled runtime exceptions?
 
 ---
 

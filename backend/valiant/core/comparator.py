@@ -9,6 +9,14 @@ def compare_runs_data(run_a: Dict[str, Any], run_b: Dict[str, Any]) -> Dict[str,
     """
     Compute structured diff between baseline run_a and target run_b.
     """
+    if not run_a or not run_b:
+        return {
+            "summary": {"error": "Both run_a and run_b must be provided"},
+            "steps": [],
+            "inputs_diff": {},
+            "context_diff": {}
+        }
+
     time_a = float(run_a.get("total_time") or 0.0)
     time_b = float(run_b.get("total_time") or 0.0)
     time_delta = round(time_b - time_a, 3)

@@ -50,8 +50,8 @@ async def _dispatch_webhook_workflow(webhook: Dict[str, Any], payload: Dict[str,
     hook_name = webhook.get("name") or "webhook"
     hook_id = webhook["id"]
 
-    wf_cls = registry.get(wf_name)
-    if not wf_cls:
+    workflow_instance = registry.get_instance(wf_name)
+    if not workflow_instance:
         raise ValueError(f"Workflow '{wf_name}' not found in registry")
 
     # Construct input parameters from mapping or raw payload
@@ -70,7 +70,7 @@ async def _dispatch_webhook_workflow(webhook: Dict[str, Any], payload: Dict[str,
     inputs["_webhook_id"] = hook_id
 
     runner = WorkflowRunner(
-        workflow=wf_cls(),
+        workflow=workflow_instance,
         environment=env,
         profile=env,
         stop_on_failure=True
@@ -113,11 +113,12 @@ async def handle_inbound_webhook(
     if not hook.get("enabled"):
         raise HTTPException(status_code=403, detail="Webhook is currently disabled")
 
-    # Validate secret header if required
+    # Validate secret header if required (constant-time comparison)
     required_secret = hook.get("secret_header")
     if required_secret:
+        import hmac
         provided = x_valiant_secret or (authorization.replace("Bearer ", "") if authorization else None)
-        if provided != required_secret:
+        if not provided or not hmac.compare_digest(provided, required_secret):
             raise HTTPException(status_code=401, detail="Invalid webhook secret token")
 
     # Ingest JSON payload safely

@@ -120,7 +120,7 @@ export const WorkflowsPage: React.FC<WorkflowsPageProps> = ({
 
       {/* Catalog Search & Filter Header */}
       <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-        <div className="relative w-full sm:w-80">
+        <div className="relative w-full sm:w-96">
           <Search className="absolute left-3.5 top-2.5 h-4 w-4 text-slate-500" />
           <input
             type="text"

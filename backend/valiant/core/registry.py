@@ -77,14 +77,13 @@ class WorkflowRegistry:
     def discover(self, search_dirs: Optional[List[str]] = None) -> None:
         """Scan directories and import Python modules to find workflows."""
         if search_dirs is None:
-            # Default directories: backend/workflows, local cwd workflows, or VALIANT_WORKFLOWS_DIR
+            # Default directories: backend/workflows, local workflows, or VALIANT_WORKFLOWS_DIR
             project_root = Path(__file__).resolve().parent.parent.parent.parent
             candidate_dirs = [
                 str(project_root / "backend" / "workflows"),
                 str(project_root / "workflows"),
                 str(Path.cwd() / "backend" / "workflows"),
                 str(Path.cwd() / "workflows"),
-                str(Path.cwd()),
             ]
             env_dir = os.environ.get("VALIANT_WORKFLOWS_DIR")
             if env_dir:
@@ -92,23 +91,30 @@ class WorkflowRegistry:
 
             search_dirs = []
             for cd in candidate_dirs:
-                if cd not in search_dirs and Path(cd).is_dir():
+                p = Path(cd)
+                if cd not in search_dirs and (p.is_dir() or (p.is_file() and p.suffix == ".py")):
                     search_dirs.append(cd)
 
         for d in search_dirs:
             p = Path(d)
-            if not p.exists() or not p.is_dir():
+            if not p.exists():
                 continue
 
-            if str(p.parent) not in sys.path:
-                sys.path.insert(0, str(p.parent))
+            # Support both directory paths and single Python files
+            files_to_load = [p] if p.is_file() and p.suffix == ".py" else list(p.glob("*.py")) if p.is_dir() else []
+            if not files_to_load:
+                continue
+
+            dir_for_sys_path = p.parent if p.is_file() else p
+            if str(dir_for_sys_path) not in sys.path:
+                sys.path.insert(0, str(dir_for_sys_path))
 
             # Check if this directory is the platform's default/template workflows folder
             project_root = Path(__file__).resolve().parent.parent.parent.parent
             default_dir = (project_root / "backend" / "workflows").resolve()
-            is_default_dir = p.resolve() == default_dir
+            is_default_dir = (p.resolve() == default_dir) if p.is_dir() else (p.parent.resolve() == default_dir)
 
-            for file_path in p.glob("*.py"):
+            for file_path in files_to_load:
                 if file_path.name.startswith("__"):
                     continue
 

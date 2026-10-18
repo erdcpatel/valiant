@@ -99,13 +99,11 @@ class AsyncScheduler:
         wf_name = schedule["workflow_name"]
         inputs = schedule.get("inputs") or {}
 
-        wf_cls = registry.get(wf_name)
-        if not wf_cls:
+        workflow_instance = registry.get_instance(wf_name)
+        if not workflow_instance:
             logger.warning("Scheduled workflow '%s' not found in registry (schedule: %s)", wf_name, sched_id)
             update_schedule_after_run(sched_id, "unknown", "failed", None, env=env)
             return None
-
-        workflow_instance = wf_cls()
         runner = WorkflowRunner(
             workflow=workflow_instance,
             environment=env,

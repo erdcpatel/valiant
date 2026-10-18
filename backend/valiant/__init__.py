@@ -1,7 +1,13 @@
 """
 Valiant Workflow Automation Platform
 """
-__version__ = "0.0.1"
+__version__ = "0.0.2"
+
+import sys
+
+# Ensure both 'valiant' and 'valiantflow' resolve to this package module
+sys.modules.setdefault("valiantflow", sys.modules[__name__])
+sys.modules.setdefault("valiant", sys.modules[__name__])
 
 from .core.models import (
     InputType,

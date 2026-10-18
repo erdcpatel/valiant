@@ -22,10 +22,16 @@ console = Console()
 
 
 @app.command("list")
-def list_workflows():
+def list_workflows(
+    directory: Optional[str] = typer.Option(None, "--dir", "-d", help="Directory or file containing workflows"),
+    include_defaults: bool = typer.Option(True, "--defaults/--no-defaults", help="Include built-in template workflows")
+):
     """List all available workflows."""
-    registry.discover()
-    workflows = registry.list_workflows()
+    search_dirs = [directory] if directory else None
+    registry.discover(search_dirs=search_dirs)
+    hide_env = os.environ.get("VALIANT_HIDE_DEFAULTS", "0").lower() in ("1", "true", "yes")
+    effective_include = include_defaults and not hide_env
+    workflows = registry.list_workflows(include_defaults=effective_include)
 
     if not workflows:
         console.print("[yellow]No workflows found.[/yellow]")
@@ -59,17 +65,18 @@ def run_workflow(
     ),
     output_format: str = typer.Option("rich", "--output", "-o", help="Output format: 'rich' or 'json'"),
     interactive: bool = typer.Option(True, "--interactive/--non-interactive", help="Prompt for missing required inputs"),
-    env: str = typer.Option("dev", "--env", "-e", help="Environment partition ('dev', 'uat', 'prod')")
+    env: str = typer.Option("dev", "--env", "-e", help="Environment partition ('dev', 'uat', 'prod')"),
+    directory: Optional[str] = typer.Option(None, "--dir", "-d", help="Directory or file containing workflows")
 ):
     """Execute a workflow directly in the terminal."""
-    registry.discover()
-    wf_class = registry.get(workflow_name)
-    if not wf_class:
+    search_dirs = [directory] if directory else None
+    registry.discover(search_dirs=search_dirs)
+    wf_instance = registry.get_instance(workflow_name)
+    if not wf_instance:
         console.print(f"[red]Error: Workflow '{workflow_name}' not found.[/red]")
         console.print(f"Available: {list(registry.list_workflows().keys())}")
         raise typer.Exit(code=1)
 
-    wf_instance = wf_class()
     inputs = {}
 
     # 1. Parse --set arguments
@@ -78,6 +85,8 @@ def run_workflow(
             if "=" in item:
                 k, v = item.split("=", 1)
                 inputs[k.strip()] = v.strip()
+            else:
+                console.print(f"[yellow]Warning: Ignoring malformed --set argument '{item}' (expected key=value)[/yellow]")
 
     # 2. Check required inputs (Prompt ONLY if required and no default exists)
     for field in wf_instance.inputs():
@@ -147,15 +156,18 @@ def run_workflow(
 @app.command("runs")
 def show_run_history(
     limit: int = typer.Option(15, "--limit", "-n", help="Number of runs to display"),
-    workflow: Optional[str] = typer.Option(None, "--workflow", "-w", help="Filter by workflow name")
+    workflow: Optional[str] = typer.Option(None, "--workflow", "-w", help="Filter by workflow name"),
+    env: str = typer.Option("dev", "--env", "-e", help="Environment partition ('dev', 'uat', 'prod')")
 ):
     """View recent execution history from the local database."""
-    runs = get_recent_runs(limit=limit, workflow_name=workflow)
+    from ..core.environments import normalize_environment
+    target_env = normalize_environment(env)
+    runs = get_recent_runs(limit=limit, workflow_name=workflow, env=target_env)
     if not runs:
-        console.print("[yellow]No execution history recorded yet.[/yellow]")
+        console.print(f"[yellow]No execution history recorded yet in [{target_env.upper()}].[/yellow]")
         return
 
-    table = Table(title="Recent Workflow Executions", title_style="bold blue")
+    table = Table(title=f"Recent Workflow Executions [{target_env.upper()}]", title_style="bold blue")
     table.add_column("Run ID", style="cyan")
     table.add_column("Workflow", style="white bold")
     table.add_column("Status", justify="center")
@@ -181,9 +193,12 @@ def show_run_history(
 def start_server(
     host: str = typer.Option("0.0.0.0", "--host", "-h", help="Bind host"),
     port: int = typer.Option(8000, "--port", "-p", help="Port number"),
-    reload: bool = typer.Option(False, "--reload", help="Enable hot reload")
+    reload: bool = typer.Option(False, "--reload", help="Enable hot reload"),
+    directory: Optional[str] = typer.Option(None, "--dir", "-d", help="Directory or file containing workflows")
 ):
     """Launch the Valiant FastAPI service and Web UI."""
+    if directory:
+        os.environ["VALIANT_WORKFLOWS_DIR"] = str(Path(directory).resolve())
     import uvicorn
     console.print(Panel(
         f"[bold green]Starting Valiant Platform[/]\n"
@@ -201,6 +216,14 @@ def scaffold_workflow(
     style: str = typer.Option("compact", "--style", "-s", help="Template style: 'compact' (modern type-annotated), 'functional' (micro-workflow), or 'standard'")
 ):
     """Scaffold a new production-ready workflow template file."""
+    import re
+    clean_name = re.sub(r"[^a-zA-Z0-9_]", "_", name).strip("_").lower()
+    if clean_name and clean_name[0].isdigit():
+        clean_name = f"wf_{clean_name}"
+    if clean_name != name:
+        console.print(f"[yellow]Notice: Normalizing workflow name '{name}' to valid Python identifier '{clean_name}'[/yellow]")
+        name = clean_name
+
     class_name = "".join(part.capitalize() for part in name.split("_")) + "Workflow"
     if directory:
         target_dir = Path(directory)
@@ -332,7 +355,114 @@ class {class_name}(Workflow):
 
     console.print(f"[bold green]✓ Created new {style} workflow:[/] [cyan]{target_file}[/]")
 
-    console.print(f"Run it now: [white]python run.py run {name}[/]")
+    console.print(f"Run it now: [white]valiant run {name}[/]")
+
+
+@app.command("init")
+def init_project(
+    directory: str = typer.Option(".", "--dir", "-d", help="Target project root directory (defaults to current directory)"),
+    style: str = typer.Option("compact", "--style", "-s", help="Workflow template style: 'compact' or 'functional'")
+):
+    """Initialize a new Valiant workflow project with starter template and folder structure."""
+    target_root = Path(directory).resolve()
+    workflows_dir = target_root / "workflows"
+    workflows_dir.mkdir(parents=True, exist_ok=True)
+
+    starter_file = workflows_dir / "starter_workflow.py"
+    if not starter_file.exists():
+        if style.lower() == "functional":
+            starter_content = '''\"\"\"
+Starter Workflow - Functional Micro-Workflow
+\"\"\"
+from valiantflow import workflow
+
+wf = workflow(
+    "starter_workflow",
+    description="A starter workflow demonstrating parameters and steps",
+    tags=["starter", "demo"]
+)
+
+wf.input("greeting_target", type=str, default="World", help_text="Target of the greeting")
+wf.input("iterations", type=int, default=3, help_text="Number of iterations to process")
+
+@wf.step("Validate Setup")
+def validate_setup(greeting_target: str = "World", iterations: int = 3):
+    return f"Ready to greet {greeting_target} {iterations} times"
+
+@wf.step("Process Items")
+async def process_items(ctx, greeting_target: str = "World", iterations: int = 3):
+    results = []
+    for i in range(1, iterations + 1):
+        msg = f"Hello {greeting_target}! (#{i})"
+        ctx.log(msg)
+        results.append(msg)
+    ctx["items"] = results
+    return {"status": "success", "count": len(results)}
+
+@wf.step("Final Summary")
+def final_summary(ctx):
+    count = len(ctx.get("items", []))
+    return f"Completed greeting sequence for {count} messages"
+'''
+        else:
+            starter_content = '''\"\"\"
+Starter Workflow - Modern Compact Style
+\"\"\"
+from typing import Literal
+from valiantflow import Workflow, step, workflow
+
+
+@workflow(name="starter_workflow", description="A starter workflow demonstrating parameters and steps")
+class StarterWorkflow(Workflow):
+    name = "Starter Workflow"
+    tags = ["starter", "demo"]
+
+    # Parameter declarations (auto-inferred inputs and UI schema)
+    greeting_target: str = "World"
+    iterations: int = 3
+    mode: Literal["fast", "thorough"] = "fast"
+
+    @step("Validate Setup")
+    def validate_setup(self, greeting_target: str, iterations: int):
+        return f"Ready to greet {greeting_target} {iterations} times"
+
+    @step("Process Items")
+    async def process_items(self, ctx, greeting_target: str, iterations: int):
+        results = []
+        for i in range(1, iterations + 1):
+            msg = f"Hello {greeting_target}! (#{i})"
+            ctx.log(msg)
+            results.append(msg)
+        ctx["items"] = results
+        return {"status": "success", "count": len(results)}
+
+    @step("Final Summary")
+    def final_summary(self, ctx):
+        count = len(ctx.get("items", []))
+        return f"Completed greeting sequence for {count} messages"
+'''
+        starter_file.write_text(starter_content, encoding="utf-8")
+
+    # Also create a .env template if not present
+    env_file = target_root / ".env"
+    if not env_file.exists():
+        env_content = """# ValiantFlow Environment Configuration
+VALIANT_ENV=dev
+VALIANT_WORKFLOWS_DIR=./workflows
+"""
+        env_file.write_text(env_content, encoding="utf-8")
+
+    console.print(Panel(
+        f"[bold green]✓ ValiantFlow project initialized successfully![/]\n\n"
+        f"  Workflows folder:  [cyan]{workflows_dir}[/]\n"
+        f"  Starter workflow:  [cyan]{starter_file}[/]\n\n"
+        f"[bold white]Next Steps:[reset]\n"
+        f"  1. [white]valiant list[/]                      (list available workflows)\n"
+        f"  2. [white]valiant run starter_workflow[/]      (run the starter workflow)\n"
+        f"  3. [white]valiant serve[/]                     (launch web dashboard at http://localhost:8000)\n"
+        f"  4. [white]valiant new my_flow[/]               (scaffold a new custom workflow)",
+        title="ValiantFlow Project Setup"
+    ))
 
 
 @app.command("report")

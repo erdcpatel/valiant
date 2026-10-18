@@ -274,13 +274,21 @@ The registry automatically searches for workflow `.py` files in:
 2. `workflows/` (root workspace directory)
 3. Any directory specified by the `VALIANT_WORKFLOWS_DIR` environment variable.
 
-### Scaffolding a New Workflow:
+### Scaffolding and Initializing Workflows:
 ```bash
-# Creates a modern compact workflow (type-annotated, minimal boilerplate)
+# Initialize a new project with a workflows/ directory and starter template
+valiant init
+
+# Scaffolds a modern compact workflow (type-annotated, minimal boilerplate)
 valiant new order_sync --style compact
 
-# Creates a functional micro-workflow (script-style, ultra-minimal)
+# Scaffolds a functional micro-workflow (script-style, ultra-minimal)
 valiant new quick_deploy --style functional
+
+# Discover and run a specific custom workflow directory or single file
+valiant list --dir ./my_workflows --no-defaults
+valiant run custom_flow --dir ./my_workflows/custom_flow.py --env dev
+valiant runs --env dev --limit 10
 
 # Creates a legacy full-class workflow
 valiant new audit_pipeline --style standard

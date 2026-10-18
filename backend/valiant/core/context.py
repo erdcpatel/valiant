@@ -213,7 +213,7 @@ class WorkflowContext:
                 k in self._sensitive_keys or
                 any(secret_word in k.lower() for secret_word in ["password", "secret", "token", "api_key", "auth_token"])
             )
-            if mask_secrets and is_secret and v:
+            if mask_secrets and is_secret and v is not None:
                 result[k] = "********"
             else:
                 try:
@@ -270,7 +270,14 @@ class WorkflowContext:
             cmd_list = [str(c) for c in command]
 
         if not cmd_list:
-            raise ValueError("Command list cannot be empty")
+            return CommandResult(
+                command=[],
+                exit_code=-1,
+                stdout="",
+                stderr="Command list cannot be empty",
+                duration=0.0,
+                success=False
+            )
 
         # Cross-platform executable path resolution (handles mvn -> mvn.cmd on Windows)
         executable = shutil.which(cmd_list[0])
@@ -350,6 +357,7 @@ class WorkflowContext:
                     self._runner.kill_process(proc)
                 else:
                     proc.kill()
+                await proc.wait()
             except Exception:
                 pass
             return CommandResult(

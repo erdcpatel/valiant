@@ -3,7 +3,7 @@
 ValiantFlow is a **developer-first Python Workflow Automation & Orchestration Platform** built for simplicity, high performance, and enterprise reliability (published on PyPI as [`valiantflow`](https://pypi.org/project/valiantflow/)). Define complex multi-step automated workflows with Python decorators, execute them via CLI, Web UI, or REST API, and monitor live step-by-step executions in real-time.
 
 > [!NOTE]
-> **Public Beta (v0.0.1)**: ValiantFlow is currently in active public beta. All workflows, execution engine primitives, and web dashboard features are fully operational. Contributions, issues, and feature requests are welcomed!
+> **Public Beta (v0.0.2)**: ValiantFlow is currently in active public beta. All workflows, execution engine primitives, and web dashboard features are fully operational. Contributions, issues, and feature requests are welcomed!
 
 ---
 
@@ -88,23 +88,28 @@ valiantflow serve
 ## 💻 Terminal CLI Usage
 
 ```bash
-# 1. List all discovered workflows
+# 1. Initialize a new project directory with workflows/ and starter template
+valiant init
+
+# 2. List all discovered workflows (optionally pointing to custom dir or file)
 valiant list
+valiant list --dir ./my_workflows --no-defaults
 
-# 2. Run a workflow with parameters in a specific environment
-valiant run demo --env dev --set user_name="Alice" --set max_items=50
+# 3. Run a workflow with parameters in a specific environment
+valiant run starter_workflow --env dev --set greeting_target="Engineering"
+valiant run custom_flow --dir ./my_workflows/custom_flow.py
 
-# 3. View persistent run history from database
+# 4. View persistent run history from database per environment
 valiant runs --env dev --limit 10
 
-# 4. Stream or tail dedicated per-run execution logs
+# 5. Stream or tail dedicated per-run execution logs
 valiant logs <run_id> --env dev --follow
 
-# 5. Generate standalone self-contained HTML audit report
+# 6. Generate standalone self-contained HTML audit report
 valiant report <run_id> --env dev --output report.html --open
 
-# 6. Scaffold a new workflow file instantly
-valiant new my_automation
+# 7. Scaffold a new workflow file instantly
+valiant new my_automation --style compact
 ```
 
 ---
@@ -144,7 +149,7 @@ ValiantFlow scans the following locations automatically:
 1. `$VALIANT_WORKFLOWS_DIR` (if set)
 2. `./workflows/*.py` (recommended project standard)
 3. `./backend/workflows/*.py` (full-stack application standard)
-4. Current directory `./*.py`
+4. Specific directory or `.py` file provided via `--dir` flag (e.g. `valiant list --dir ./my_flow.py`)
 
 In the Web UI (`http://localhost:8000/`), your custom workflows appear in the catalog. You can toggle **"Hide Default Templates"** to focus purely on your custom automations!
 
