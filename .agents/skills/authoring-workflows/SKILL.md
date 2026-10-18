@@ -267,12 +267,24 @@ def apply_migration(self, context):
 
 ---
 
-## 5. Workflow Discovery & Directory Conventions
+## 5. Standalone Project Structure & Workflow Discovery
+
+When using ValiantFlow via `pip install valiantflow`, organize your repository as follows:
+
+```text
+my-automations/
+├── .env                       # Environment configs (VALIANT_ENV=dev, secrets)
+├── requirements.txt           # Project dependencies (valiantflow, polars, etc.)
+└── workflows/                 # Standard discovery directory
+    ├── starter_workflow.py    # Created by 'valiant init'
+    └── custom_pipeline.py     # Your custom workflow definitions
+```
 
 The registry automatically searches for workflow `.py` files in:
-1. `backend/workflows/` (platform catalog)
-2. `workflows/` (root workspace directory)
-3. Any directory specified by the `VALIANT_WORKFLOWS_DIR` environment variable.
+1. `workflows/` (root workspace directory — standard convention)
+2. `$VALIANT_WORKFLOWS_DIR` (environment variable override if using custom paths)
+3. Specific directories or files passed explicitly via `--dir` (e.g. `valiant list --dir ./my_file.py`)
+4. `backend/workflows/` (internal platform templates)
 
 ### Scaffolding and Initializing Workflows:
 ```bash

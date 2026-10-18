@@ -116,27 +116,46 @@ valiant new my_automation --style compact
 
 ---
 
-## 📂 Workflow Locations & Automatic Discovery
+## 📂 Adding Your Own Workflows & Project Structure
 
-When you install ValiantFlow in your own project, how does it discover your custom workflows?
+When you install ValiantFlow via `pip install valiantflow`, how and where should you keep your workflows?
 
-### 1. Standard Discovery Convention (`./workflows/`)
-By default, ValiantFlow automatically discovers all `.py` files inside a **`workflows/`** folder in your current working directory:
+### 1. Recommended Project Structure
+Create a dedicated project folder and run `valiant init`:
+
 ```bash
-my-project/
-├── workflows/
-│   ├── data_pipeline.py
-│   └── user_sync.py
+mkdir my-automations && cd my-automations
+valiant init
 ```
 
-### 2. Instant Scaffolding
+This sets up the standard project structure:
+```text
+my-automations/
+├── .env                       # Environment variables (VALIANT_ENV, secrets, etc.)
+├── requirements.txt           # Your dependencies (valiantflow, polars, etc.)
+└── workflows/                 # <-- Put all your custom workflow files here
+    ├── starter_workflow.py    # Created by 'valiant init'
+    ├── order_fulfillment.py   # Created by 'valiant new'
+    └── customer_sync.py
+```
+
+### 2. Standard Discovery Convention (`./workflows/`)
+By default, ValiantFlow automatically discovers all `.py` files inside the **`workflows/`** folder in your current working directory. You can run, list, or serve them immediately:
+```bash
+valiant list                   # List discovered workflows
+valiant list --no-defaults     # Show ONLY your custom workflows
+valiant run starter_workflow   # Execute a workflow
+valiant serve                  # Launch the web dashboard on http://localhost:8000
+```
+
+### 3. Instant Scaffolding
 Run `valiant new` in your terminal to generate a ready-to-run template in your `workflows/` directory:
 ```bash
 # Scaffolds a new workflow into ./workflows/order_fulfillment.py
 valiant new order_fulfillment
 ```
 
-### 3. Custom Directory via Environment Variable
+### 4. Custom Directory via Environment Variable
 If you keep your workflows in a custom location, point `VALIANT_WORKFLOWS_DIR` to your directory:
 ```bash
 export VALIANT_WORKFLOWS_DIR=/path/to/my/custom/workflows
@@ -144,7 +163,7 @@ valiant list
 valiant serve
 ```
 
-### 4. Discovery Search Priority
+### 5. Discovery Search Priority
 ValiantFlow scans the following locations automatically:
 1. `$VALIANT_WORKFLOWS_DIR` (if set)
 2. `./workflows/*.py` (recommended project standard)
