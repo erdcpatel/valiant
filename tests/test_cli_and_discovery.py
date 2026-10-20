@@ -216,10 +216,11 @@ def test_cli_root_no_args_shows_helpful_overview():
 
 def test_cli_version_flag():
     """Verify 'valiant --version' prints version and exits cleanly."""
+    from backend.valiant import __version__
     result = runner.invoke(app, ["--version"])
     assert result.exit_code == 0
     assert "ValiantFlow" in result.output
-    assert "0.0.3" in result.output
+    assert __version__ in result.output
 
 
 def test_port_availability_detection():

@@ -207,7 +207,6 @@ def test_api_health_returns_dynamic_version():
     data = resp.json()
     assert data["status"] == "healthy"
     assert data["version"] == __version__
-    assert data["version"] == "0.0.3"
 
 
 def test_comparator_handles_none_runs_gracefully():
