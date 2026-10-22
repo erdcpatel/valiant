@@ -12,6 +12,12 @@ from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path.cwd() / ".env")
+except ImportError:
+    pass
+
 from ..core.registry import registry
 from ..core.runner import WorkflowRunner
 from ..core.models import StepStatus
@@ -63,37 +69,79 @@ def main_callback(
 @app.command("list")
 def list_workflows(
     directory: Optional[str] = typer.Option(None, "--dir", "-d", help="Directory or file containing workflows"),
-    include_defaults: bool = typer.Option(True, "--defaults/--no-defaults", help="Include built-in template workflows")
+    include_defaults: Optional[bool] = typer.Option(None, "--defaults/--no-defaults", help="Include built-in template workflows")
 ):
     """List all available workflows."""
+    try:
+        from dotenv import load_dotenv
+        load_dotenv(Path.cwd() / ".env")
+    except ImportError:
+        pass
+    hide_env = os.environ.get("VALIANT_HIDE_DEFAULTS", "0").lower() in ("1", "true", "yes")
+
+    if include_defaults is False or hide_env:
+        effective_include = False
+    elif include_defaults is True:
+        effective_include = True
+    else:
+        effective_include = not hide_env
+
     search_dirs = [directory] if directory else None
     registry.discover(search_dirs=search_dirs)
-    hide_env = os.environ.get("VALIANT_HIDE_DEFAULTS", "0").lower() in ("1", "true", "yes")
-    effective_include = include_defaults and not hide_env
     workflows = registry.list_workflows(include_defaults=effective_include)
 
+    custom_wfs = {k: v for k, v in workflows.items() if not v.get("is_default", False)}
+    template_wfs = {k: v for k, v in workflows.items() if v.get("is_default", False)}
+
     if not workflows:
-        console.print("[yellow]No workflows found.[/yellow]")
+        if not effective_include:
+            console.print("[yellow]No custom workflows found in current workspace.[/yellow]")
+            console.print("[dim]Run [white]valiant init[/white] or [white]valiant new <name>[/white] to create one, or pass [white]--defaults[/white] to view built-in templates.[/dim]")
+        else:
+            console.print("[yellow]No workflows found.[/yellow]")
         return
 
-    table = Table(title="Available Workflows", title_style="bold cyan")
-    table.add_column("ID", style="cyan", no_wrap=True)
-    table.add_column("Name", style="white bold")
-    table.add_column("Steps", style="magenta", justify="center")
-    table.add_column("Inputs", style="green")
-    table.add_column("Description", style="dim")
+    # 1. Custom Project Workflows Table
+    if custom_wfs:
+        table_custom = Table(title="Custom Project Workflows", title_style="bold green")
+        table_custom.add_column("ID", style="cyan", no_wrap=True)
+        table_custom.add_column("Name", style="white bold")
+        table_custom.add_column("Steps", style="magenta", justify="center")
+        table_custom.add_column("Inputs", style="green")
+        table_custom.add_column("Description", style="dim")
+        for wf_id, wf in custom_wfs.items():
+            input_names = [f["name"] for f in wf.get("inputs", [])]
+            table_custom.add_row(
+                wf_id,
+                wf.get("name", wf_id),
+                str(wf.get("step_count", 0)),
+                ", ".join(input_names) if input_names else "none",
+                wf.get("description", "")
+            )
+        console.print(table_custom)
 
-    for wf_id, wf in workflows.items():
-        input_names = [f["name"] for f in wf.get("inputs", [])]
-        table.add_row(
-            wf_id,
-            wf.get("name", wf_id),
-            str(wf.get("step_count", 0)),
-            ", ".join(input_names) if input_names else "none",
-            wf.get("description", "")
-        )
+    # 2. Template Workflows Table
+    if template_wfs:
+        title = "Built-in Template Workflows" if custom_wfs else "Available Workflows (Templates)"
+        table_tpl = Table(title=title, title_style="bold cyan" if not custom_wfs else "dim cyan")
+        table_tpl.add_column("ID", style="cyan", no_wrap=True)
+        table_tpl.add_column("Name", style="white bold" if not custom_wfs else "dim white")
+        table_tpl.add_column("Steps", style="magenta", justify="center")
+        table_tpl.add_column("Inputs", style="green")
+        table_tpl.add_column("Description", style="dim")
+        for wf_id, wf in template_wfs.items():
+            input_names = [f["name"] for f in wf.get("inputs", [])]
+            table_tpl.add_row(
+                wf_id,
+                wf.get("name", wf_id),
+                str(wf.get("step_count", 0)),
+                ", ".join(input_names) if input_names else "none",
+                wf.get("description", "")
+            )
+        console.print(table_tpl)
 
-    console.print(table)
+        if custom_wfs:
+            console.print("[dim]Tip: Pass [white]--no-defaults[/white] (or set [white]VALIANT_HIDE_DEFAULTS=1[/white]) to hide built-in templates.[/dim]")
 
 
 @app.command("run")
@@ -256,9 +304,13 @@ def start_server(
     port: Optional[int] = typer.Option(None, "--port", "-p", help="Port number (or VALIANT_PORT / PORT env)"),
     strict_port: bool = typer.Option(False, "--strict-port", help="Do not attempt to auto-select next available port if busy"),
     reload: bool = typer.Option(False, "--reload", help="Enable hot reload"),
-    directory: Optional[str] = typer.Option(None, "--dir", "-d", help="Directory or file containing workflows")
+    directory: Optional[str] = typer.Option(None, "--dir", "-d", help="Directory or file containing workflows"),
+    include_defaults: bool = typer.Option(True, "--defaults/--no-defaults", help="Include built-in template workflows in dashboard")
 ):
     """Launch the Valiant FastAPI service and Web UI with smart port resolution."""
+    if not include_defaults:
+        os.environ["VALIANT_HIDE_DEFAULTS"] = "1"
+
     if directory:
         os.environ["VALIANT_WORKFLOWS_DIR"] = str(Path(directory).resolve())
 
@@ -533,6 +585,9 @@ class StarterWorkflow(Workflow):
         env_content = """# ValiantFlow Environment Configuration
 VALIANT_ENV=dev
 VALIANT_WORKFLOWS_DIR=./workflows
+
+# Set to 1 to completely hide package-shipped built-in template workflows
+# VALIANT_HIDE_DEFAULTS=1
 """
         env_file.write_text(env_content, encoding="utf-8")
 

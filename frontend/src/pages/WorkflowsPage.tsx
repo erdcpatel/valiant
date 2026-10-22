@@ -43,9 +43,22 @@ export const WorkflowsPage: React.FC<WorkflowsPageProps> = ({
 
   const [showDefaults, setShowDefaults] = useState<boolean>(() => {
     const saved = localStorage.getItem('valiant_show_defaults');
-    return saved !== null ? saved === 'true' : true;
+    if (saved !== null) return saved === 'true';
+    const hasCustom = Object.values(workflows).some((w) => !w.is_default);
+    return !hasCustom;
   });
   const [isTagsExpanded, setIsTagsExpanded] = useState(false);
+
+  // If user hasn't explicitly set a preference and custom workflows are present, default to hiding templates
+  useEffect(() => {
+    const saved = localStorage.getItem('valiant_show_defaults');
+    if (saved === null) {
+      const hasCustom = Object.values(workflows).some((w) => !w.is_default);
+      if (hasCustom) {
+        setShowDefaults(false);
+      }
+    }
+  }, [workflows]);
 
   useEffect(() => {
     if (initialModalWf && workflows[initialModalWf]) {
